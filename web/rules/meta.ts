@@ -1,30 +1,30 @@
 import { is_meta_title_vague } from "jint:rules/seo";
 import { is_description_complete } from "./opengraph.ts";
-import type { ClassifyContext, CustomElement, CustomRule } from "jint:sdk";
+import type { CustomElement, CustomRule } from "jint:sdk";
 
 const searchTitle = (frontMatter: CustomElement): string => {
-  const title = frontMatter.element("yaml:pair", "title").value;
+  const title = frontMatter.getElement("yaml:pair", "title").value;
   if (title === undefined) throw new Error("the title is empty");
   return `${title} - jint docs`;
 };
 
 export const is_doc_title_vague: CustomRule = {
   ...is_meta_title_vague,
-  target: "markdown:h1",
-  state: (page: CustomElement, { file }: ClassifyContext) => ({
-    metaTitle: searchTitle(file.element("markdown:frontmatter")),
-    pageContent: page.source,
+  target: "files",
+  state: (file: CustomElement) => ({
+    metaTitle: searchTitle(file.getElement("markdown:frontmatter")),
+    pageContent: file.getElement("markdown:h1").source,
   }),
 };
 
 export const is_doc_description_complete: CustomRule = {
   name: "is_doc_description_complete",
-  target: "markdown:h1",
-  state: (_page, { file }) => {
-    const frontMatter = file.element("markdown:frontmatter");
+  target: "files",
+  state: (file) => {
+    const frontMatter = file.getElement("markdown:frontmatter");
     return {
       metaTitle: searchTitle(frontMatter),
-      metaDescription: frontMatter.element("yaml:pair", "description").value,
+      metaDescription: frontMatter.getElement("yaml:pair", "description").value,
     };
   },
   instructions: is_description_complete.instructions,

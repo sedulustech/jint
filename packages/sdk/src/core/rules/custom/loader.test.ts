@@ -255,8 +255,12 @@ describe("validateCustomRule (load-time, fatal)", () => {
     expect(() => validateCustomRule({ ...ok, name: "" }, "f.ts")).toThrow(/name/);
   });
 
+  test("missing target", () => {
+    expect(() => validateCustomRule({ ...ok, target: undefined }, "f.ts")).toThrow(/target/);
+  });
+
   test("invalid target string", () => {
-    expect(() => validateCustomRule({ ...ok, target: "files" }, "f.ts")).toThrow(/target/);
+    expect(() => validateCustomRule({ ...ok, target: "file" }, "f.ts")).toThrow(/target/);
   });
 
   test("missing classify", () => {

@@ -52,7 +52,7 @@ async function statesOf(
 }
 
 const example = (entry: CustomElement): string | undefined =>
-  entry.elements("markdown:code_block")[0]?.elements("markdown:code")[0]?.source;
+  entry.getElements("markdown:code_block")[0]?.getElements("markdown:code")[0]?.source;
 
 describe("a rule's state function", () => {
   test("composes from the parent, the name and the elements inside", async () => {
@@ -83,11 +83,13 @@ describe("a rule's state function", () => {
     ]);
   });
 
-  test("file.elements() is every element, in file order", async () => {
+  test("file.getElements() is every element, in file order", async () => {
     const { states } = await statesOf(
       {
         target: "functions",
-        state: (_, { file }) => ({ order: file.elements().map((e) => e.capture + " " + e.name) }),
+        state: (_, { file }) => ({
+          order: file.getElements().map((e) => e.capture + " " + e.name),
+        }),
       },
       'import a from "a";\n\n\n// loose\n\n\nclass A {\n  m() {}\n}\nexport function f() {}\n',
       "typescript",
@@ -102,8 +104,8 @@ describe("a rule's state function", () => {
       {
         target: "markdown:h4",
         state: (h4) => {
-          for (const child of h4.elements()) expect(child.parent).toBe(h4);
-          expect(h4.parent!.elements()).toContain(h4);
+          for (const child of h4.getElements()) expect(child.parent).toBe(h4);
+          expect(h4.parent!.getElements()).toContain(h4);
           return {};
         },
       },
@@ -118,8 +120,8 @@ describe("a rule's state function", () => {
       {
         target: "markdown:h1",
         state: (h1, { file }) => ({
-          title: file.element("markdown:frontmatter").element("yaml:pair", "title").value,
-          sections: h1.elements("markdown:h2").map((h2) => h2.name),
+          title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+          sections: h1.getElements("markdown:h2").map((h2) => h2.name),
         }),
       },
       PAGE,
@@ -127,14 +129,54 @@ describe("a rule's state function", () => {
     expect(states as unknown).toEqual([{ title: "A page", sections: ["B", "C"] }]);
   });
 
+  test("a files target judges the file", async () => {
+    const { states } = await statesOf(
+      {
+        target: "files",
+        state: (file, ctx) => ({
+          same: file === ctx.file,
+          title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+          sections: file.getElements("markdown:h2").length,
+        }),
+      },
+      PAGE,
+    );
+    expect(states as unknown).toEqual([{ same: true, title: "A page", sections: 2 }]);
+  });
+
+  test("a file rule follows its scope, and its finding covers the file", () => {
+    const rule = validateCustomRule(
+      {
+        name: "is_rule",
+        ...QUESTION,
+        target: "files",
+        include: ["docs/**"],
+        state: (file: CustomElement) => ({ text: file.source }),
+        handle: { warn: { greater_than: 0.5 } },
+      },
+      "jint.config.ts",
+    );
+    const paths = ["docs/a.astro", "src/b.ts"];
+    const resolved = resolveAllCustomTargets(
+      [rule],
+      new Map(paths.map((path) => [path, []])),
+      new Map(paths.map((path) => [path, "one\ntwo\n"])),
+    ).get(rule);
+    const targets = resolved !== undefined && "targets" in resolved ? resolved.targets : [];
+    expect(targets.map((t) => [t.path, t.id, t.capture, t.span.endByte])).toEqual([
+      ["docs/a.astro", "L1-L3", "file", 8],
+    ]);
+  });
+
   test.each([
     ["markdown:table", undefined, 'the h1 "A" has no markdown:table'],
     ["markdown:h2", "D", 'the h1 "A" has no markdown:h2 named "D"'],
     ["markdown:h2", undefined, 'the h1 "A" has 2 markdown:h2'],
+    ["files", undefined, 'the h1 "A" holds elements, and a file is not one of them'],
     ["markdown:h22", undefined, 'does not emit "h22"'],
   ])("element %p %p throws", async (target, name, message) => {
     const { errors } = await statesOf(
-      { target: "markdown:h1", state: (h1) => ({ e: h1.element(target, name) }) },
+      { target: "markdown:h1", state: (h1) => ({ e: h1.getElement(target, name) }) },
       PAGE,
     );
     expect(errors).toHaveLength(1);

@@ -9,7 +9,12 @@
  * bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS, projectElement } from "../../grammars/walk.ts";
+import {
+  charsToTokens,
+  fileElement,
+  MAX_ELEMENT_TOKENS,
+  projectElement,
+} from "../../grammars/walk.ts";
 import { inCall } from "../../provider/debug.ts";
 import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
 import { ruleInScope } from "../../scope.ts";
@@ -22,10 +27,10 @@ import {
   type RuleResult,
   type Span,
 } from "../../types.ts";
-import { matchesTarget } from "../classify.ts";
-import { isRefusal, toClassifyError } from "../classify.ts";
+import { classifiedState, isRefusal, matchesTarget, toClassifyError } from "../classify.ts";
 import { compileNoulHandler } from "../handle.ts";
 import {
+  targetNamesOf,
   validateDecision,
   validateStateSpec,
   type ClassifyContext,
@@ -116,45 +121,58 @@ export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget> & {
 
 /**
  * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
- * inventory; the function form receives the FULL walk inventory — not the rule's context — and is
- * pure selection. Errors resolve to a per-unit failure for that rule.
+ * inventory, and the function form receives the FULL walk inventory — not the rule's context.
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
   inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
   sourceByPath: ReadonlyMap<string, string> = new Map(),
   registry?: GrammarRegistry,
+  judgesFiles = true,
 ): ResolvedCustomTargets {
-  const elementsByPath = new Map<string, readonly CustomElement[]>();
-  const fileElements = new Map<string, readonly CustomElement[]>();
+  const walked = new Map<string, WalkedFile>();
   for (const [path, inventory] of inventoryByPath) {
-    const elements = elementsInFileOrder(inventory, path, registry);
-    fileElements.set(path, elements);
-    elementsByPath.set(path, judgeable(inventory, elements));
+    const all = elementsInFileOrder(inventory, path, registry);
+    walked.set(path, { all, judged: judgeable(inventory, all) });
   }
-  const allElements = [...elementsByPath.values()].flat();
-  const rules = new Map<CustomRule, ResolvedCustomTarget>();
-  for (const rule of customRules) rules.set(rule, resolveTargets(rule, allElements));
-  // only a file a target sits in gets one: the run drops the text of every other file
+  const allElements = [...walked.values()].flatMap((file) => file.judged);
   const files = new Map<string, CustomFile>();
-  for (const resolved of rules.values()) {
-    if (!("targets" in resolved)) continue;
-    for (const { path } of resolved.targets) {
-      if (!files.has(path)) {
-        files.set(
-          path,
-          customFileOf(
-            path,
-            sourceByPath.get(path) ?? "",
-            elementsByPath.get(path)!,
-            fileElements.get(path)!,
-            registry,
-          ),
-        );
-      }
-    }
+  const fileAt = (path: string): CustomFile => {
+    const { judged, all } = walked.get(path)!;
+    const file =
+      files.get(path) ?? customFileOf(path, sourceByPath.get(path) ?? "", judged, all, registry);
+    files.set(path, file);
+    return file;
+  };
+  const judgedFiles = judgesFiles ? [...walked.keys()] : [];
+  const rules = new Map<CustomRule, ResolvedCustomTarget>();
+  for (const rule of customRules) {
+    const resolved = withFiles(rule, resolveTargets(rule, allElements), judgedFiles, fileAt);
+    rules.set(rule, resolved);
+    // only a file a target sits in gets one: the run drops the text of every other file
+    if ("targets" in resolved) for (const { path } of resolved.targets) fileAt(path);
   }
   return Object.assign(rules, { files });
+}
+
+interface WalkedFile {
+  readonly all: readonly CustomElement[];
+  readonly judged: readonly CustomElement[];
+}
+
+/** The targets of a rule that judges files, with each file in its scope before its elements. */
+function withFiles(
+  rule: CustomRule,
+  resolved: ResolvedCustomTarget,
+  paths: readonly string[],
+  fileAt: (path: string) => CustomFile,
+): ResolvedCustomTarget {
+  if ("error" in resolved || !targetNamesOf(rule).includes("files")) return resolved;
+  const inScope = paths.filter((path) => ruleInScope(rule, path));
+  return {
+    targets: [...inScope.map(fileAt), ...resolved.targets],
+    scopedOut: resolved.scopedOut + paths.length - inScope.length,
+  };
 }
 
 function customFileOf(
@@ -164,9 +182,18 @@ function customFileOf(
   all: readonly CustomElement[] = elements,
   registry?: GrammarRegistry,
 ): CustomFile {
+  const { span, label } = fileElement(classifiedState({ path, content: source }).id, source);
   return {
     path,
     source,
+    capture: "file",
+    grammar: all[0]?.grammar ?? "",
+    id: label,
+    label,
+    span,
+    parent: null,
+    internalCommentCount: all.filter((e) => e.capture === "comment").length,
+    docstringCount: all.filter((e) => e.docstringOf?.kind === "module").length,
     definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
     comments: elements.filter((e) => e.capture === "comment"),
     imports: elements.filter((e) => e.capture === "import"),
@@ -202,7 +229,7 @@ export function resolveTargets(
   // THE shared target grammar: selection here is the same per-element mapping the declarative
   // tier uses, so the two tiers cannot drift (a comments target matches comment elements AND code
   // carrying an attachedComment).
-  const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
+  const requested = targetNamesOf(rule);
   const filtered = allElements.filter(
     (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
   );

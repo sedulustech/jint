@@ -82,8 +82,6 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
-// The CLI reference: each verb, noun and flag has its own heading, and an entry's state leaves out
-// the entries under it.
 const has_extra_description: CustomRule = {
   name: "has_extra_description",
   target: ["markdown:h3", "markdown:h4"],
@@ -91,10 +89,13 @@ const has_extra_description: CustomRule = {
   state: (entry) => ({
     heading: entry.name,
     description: entry
-      .elements("markdown:paragraph")
+      .getElements("markdown:paragraph")
       .map((paragraph) => paragraph.source.trim())
       .join("\n\n"),
-    example: entry.elements("markdown:code_block")[0]?.elements("markdown:code")[0]?.source.trim(),
+    example: entry
+      .getElements("markdown:code_block")[0]
+      ?.getElements("markdown:code")[0]
+      ?.source.trim(),
   }),
   instructions:
     "This unit is one entry of a CLI reference page: a heading that names a verb, a noun or a flag, a description, and an example command. Besides naming what the item does, does the description say more than one short phrase?",

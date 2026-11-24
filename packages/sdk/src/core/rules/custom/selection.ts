@@ -9,16 +9,18 @@ export function selectionOf(
   place: string,
   registry: GrammarRegistry | undefined,
 ): ElementSelection {
-  const elements = (target?: string): readonly CustomElement[] => {
+  const getElements = (target?: string): readonly CustomElement[] => {
     if (target === undefined) return within;
+    if (target === "files")
+      throw new Error(`${place} holds elements, and a file is not one of them`);
     if (registry !== undefined) assertCaptureAddress(target, registry);
     return within.filter((element) => matchesTarget(target, element));
   };
-  const element = (target: string, name?: string): CustomElement => {
-    const found = elements(target).filter((e) => name === undefined || e.name === name);
+  const getElement = (target: string, name?: string): CustomElement => {
+    const found = getElements(target).filter((e) => name === undefined || e.name === name);
     if (found.length === 1) return found[0]!;
     const wanted = name === undefined ? target : `${target} named "${name}"`;
     throw new Error(`${place} has ${found.length === 0 ? "no" : found.length} ${wanted}`);
   };
-  return { element, elements };
+  return { getElement, getElements };
 }

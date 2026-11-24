@@ -19,9 +19,9 @@ export interface ElementSelection {
    * The one element a target takes, with this name when one is given. It throws when there is none,
    * or more than one.
    */
-  readonly element: (target: string, name?: string) => CustomElement;
+  readonly getElement: (target: string, name?: string) => CustomElement;
   /** Every element a target takes, or every element without one, in file order. */
-  readonly elements: (target?: string) => readonly CustomElement[];
+  readonly getElements: (target?: string) => readonly CustomElement[];
 }
 
 /**
@@ -50,12 +50,10 @@ export interface RuleContext {
 }
 
 /**
- * The file an element sits in, as the walk saw it: its text and every element in it, in walk order.
- * The element being judged is one of them, the same object.
+ * A file, as the walk saw it. It is the element a file rule judges, and the file every other
+ * element sits in.
  */
-export interface CustomFile extends ElementSelection {
-  readonly path: string;
-  readonly source: string;
+export interface CustomFile extends CustomElement {
   readonly definitions: readonly CustomElement[];
   readonly comments: readonly CustomElement[];
   readonly imports: readonly CustomElement[];
@@ -125,6 +123,7 @@ export interface CustomRuleBase {
   readonly name: string;
   readonly kind?: "noul";
   readonly target:
+    | "files"
     | `${string}:${string}`
     | "functions"
     | "classes"
@@ -177,8 +176,8 @@ export interface TsConfig {
   readonly charsPerToken?: number;
 }
 
-/** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
 export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
+  "files",
   "functions",
   "classes",
   "methods",
@@ -257,6 +256,12 @@ export function validateDecision(
     );
   }
   return decision as Static<typeof DECISION_SCHEMA>;
+}
+
+/** The targets a rule names, which a target function has none of. */
+export function targetNamesOf({ target }: Pick<CustomRule, "target">): readonly string[] {
+  if (typeof target === "function") return [];
+  return typeof target === "string" ? [target] : target;
 }
 
 function isRole(t: unknown): boolean {

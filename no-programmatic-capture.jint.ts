@@ -31,7 +31,7 @@ export const no_programmatic_capture: CustomRule = {
   },
   state: (rule, { file }) => ({
     rule: rule.source,
-    helpers: usedBy(rule, declarationsOf(file.elements()))
+    helpers: usedBy(rule, declarationsOf(file.getElements()))
       .map((e) => e.source)
       .join("\n\n"),
   }),

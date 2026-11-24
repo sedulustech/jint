@@ -28,14 +28,16 @@ export const CONTEXT_FIELDS: Fields<ClassifyContext> = {
   targets: ["element[]", "Every element the rule judges in this run."],
 };
 
-export const FILE_FIELDS: Fields<CustomFile> = {
+export const FILE_FIELDS: Fields<
+  Omit<CustomFile, Exclude<keyof CustomElement, "path" | "source" | "getElement" | "getElements">>
+> = {
   path: ["string", "The file's path."],
   source: ["string", "The file's whole text."],
-  element: [
+  getElement: [
     "(target, name?) => element",
     "The one element in the file that a target takes. It throws when there is none, or more than one.",
   ],
-  elements: [
+  getElements: [
     "(target?) => element[]",
     "The elements in the file that a target takes, or all of them, in file order.",
   ],
@@ -49,11 +51,11 @@ export const ELEMENT_FIELDS: Fields<CustomElement> = {
   value: ["string", "What the element holds under its name, such as the value of a key."],
   source: ["string", "The element's text, less what its grammar omits from the capture."],
   parent: ["element | null", "The element this one sits inside."],
-  element: [
+  getElement: [
     "(target, name?) => element",
     "The one element directly inside this one that a target takes. It throws when there is none, or more than one.",
   ],
-  elements: [
+  getElements: [
     "(target?) => element[]",
     "The elements directly inside this one that a target takes, or all of them, in file order.",
   ],

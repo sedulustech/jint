@@ -28,11 +28,12 @@ const is_meta_title_vague: CustomRule = {
       message: "Rewrite the title to name the page's main subject, or the task a reader completes.",
     },
   },
-  target: "markdown:h1",
-  state: (page, { file }) => ({
+  target: "files",
+  state: (file) => ({
     metaTitle:
-      file.element("markdown:frontmatter").element("yaml:pair", "title").value + " - jint docs",
-    pageContent: page.source,
+      file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value +
+      " - jint docs",
+    pageContent: file.getElement("markdown:h1").source,
   }),
 };
 

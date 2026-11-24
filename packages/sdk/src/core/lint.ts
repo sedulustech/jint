@@ -62,6 +62,7 @@ import {
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
+import { targetNamesOf, type CustomRule } from "./rules/custom/schema.ts";
 import { judgesWholeUnit, ruleScopeClaims, ruleInScope, type ScopeKeys } from "./scope.ts";
 import {
   ClassifyError,
@@ -80,7 +81,6 @@ import { findUi } from "./ui-registry.ts";
 import { POOL_FAILED_NOTE, walkAll } from "./walk-pool.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { SelectedElement } from "./output/echo.ts";
-import type { CustomRule } from "./rules/custom/schema.ts";
 import type { RuleDigest } from "@jint/contract";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
@@ -243,12 +243,7 @@ function selectScopedElements(
   return { selected, skipped };
 }
 
-/**
- * THE CAPTURE-ADDRESS GATE, over the run's registry and before any file walks: a shadow grammar
- * REPLACES its embedded extraction, so the emitted set for an id is the shadow's once merged.
- * Config load is grammar-blind (no registry is built there), so an address error surfaces here as
- * CONFIG_INVALID, before anything is measured, the same way a config error does.
- */
+/** A grammar of the run can replace an embedded one, so only the run's registry knows its captures. */
 function assertTargetsAddressable(config: ResolvedConfig, registry: GrammarRegistry): void {
   for (const rule of config.rules) {
     for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
@@ -256,10 +251,7 @@ function assertTargetsAddressable(config: ResolvedConfig, registry: GrammarRegis
     }
   }
   for (const rule of config.customRules ?? []) {
-    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
-    for (const t of targets) {
-      if (typeof t === "string") assertCaptureAddress(t, registry);
-    }
+    for (const t of targetNamesOf(rule)) assertCaptureAddress(t, registry);
   }
 }
 
@@ -489,6 +481,7 @@ async function* walkUnits(
       elementsByPathOf(units, walked),
       sourceByPathOf(units, walked),
       registry,
+      options.element === undefined,
     );
     if (!rules.some((r) => targetsFiles(r.target))) {
       retainTargetedContent(units, walked, customResolved);
@@ -705,6 +698,12 @@ async function walkedInventories(
 function targetsFiles(target: Rule["target"]): boolean {
   return Array.isArray(target) ? target.includes("files") : target === "files";
 }
+
+/** A rule that judges files reads one no grammar claims, so it never requires a grammar. */
+const judgesOnlyFiles = (rule: CustomRule): boolean => {
+  const names = targetNamesOf(rule);
+  return names.length > 0 && names.every((name) => name === "files");
+};
 
 function elementsByPathOf(
   units: readonly Unit[],
@@ -1045,7 +1044,7 @@ async function resolveRunUnits(
   const applies = (rule: ScopeKeys, p: string) =>
     ruleInScope(rule, p) && (rule.include !== undefined || operandAdmits(p));
   const requireGrammarFor = (p: string) =>
-    customRules.some((rule) => applies(rule, p)) ||
+    customRules.some((rule) => applies(rule, p) && !judgesOnlyFiles(rule)) ||
     rules.some((rule) => applies(rule, p) && !judgesWholeUnit(rule, "file"));
   if (pathsList !== undefined && (input === undefined || input === "")) {
     return {

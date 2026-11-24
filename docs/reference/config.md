@@ -301,13 +301,13 @@ The element this one sits inside.
 
 _element | null_
 
-### `element`
+### `getElement`
 
 The one element directly inside this one that a target takes. It throws when there is none, or more than one.
 
 _(target, name?) => element_
 
-### `elements`
+### `getElements`
 
 The elements directly inside this one that a target takes, or all of them, in file order.
 
@@ -417,13 +417,13 @@ The file's whole text.
 
 _string_
 
-### `element`
+### `getElement`
 
 The one element in the file that a target takes. It throws when there is none, or more than one.
 
 _(target, name?) => element_
 
-### `elements`
+### `getElements`
 
 The elements in the file that a target takes, or all of them, in file order.
 

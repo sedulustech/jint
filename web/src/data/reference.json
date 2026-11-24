@@ -349,16 +349,16 @@
           "body": "The element this one sits inside."
         },
         {
-          "id": "element-element",
+          "id": "element-getelement",
           "level": 3,
-          "name": "element",
+          "name": "getElement",
           "pills": ["(target, name?) => element"],
           "body": "The one element directly inside this one that a target takes. It throws when there is none, or more than one."
         },
         {
-          "id": "element-elements",
+          "id": "element-getelements",
           "level": 3,
-          "name": "elements",
+          "name": "getElements",
           "pills": ["(target?) => element[]"],
           "body": "The elements directly inside this one that a target takes, or all of them, in file order."
         },
@@ -487,16 +487,16 @@
           "body": "The file's whole text."
         },
         {
-          "id": "file-element",
+          "id": "file-getelement",
           "level": 3,
-          "name": "element",
+          "name": "getElement",
           "pills": ["(target, name?) => element"],
           "body": "The one element in the file that a target takes. It throws when there is none, or more than one."
         },
         {
-          "id": "file-elements",
+          "id": "file-getelements",
           "level": 3,
-          "name": "elements",
+          "name": "getElements",
           "pills": ["(target?) => element[]"],
           "body": "The elements in the file that a target takes, or all of them, in file order."
         },

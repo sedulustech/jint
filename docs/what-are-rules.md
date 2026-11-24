@@ -64,13 +64,15 @@ The grammar decides what exists: each capture is an element. The rule decides wh
 classifier reads. `self` is the element being judged, and `ctx.file` is the file it sits in. The
 [config reference](reference/config.md#element-fields) lists their fields.
 
-Both pick other elements by what a `target` takes. `element` gives the one that matches, by its name
-when you pass one, and throws when there is none or more than one. `elements` gives all of them.
+Both pick other elements by what a `target` takes. `getElement` gives the one that matches, by its name
+when you pass one, and throws when there is none or more than one. `getElements` gives all of them. When the `target`
+is `files`, `self` is the file.
 
 ```ts
-state: (page, { file }) => ({
-  title: file.element("markdown:frontmatter").element("yaml:pair", "title").value,
-  sections: page.elements("markdown:h2").map((section) => section.name),
+target: "files",
+state: (file) => ({
+  title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+  sections: file.getElements("markdown:h2").map((section) => section.name),
 }),
 ```
 
@@ -111,7 +113,7 @@ For `send_email` in a Python class `Invoice`, the classifier reads this state:
 A declarative rule cannot see the class. With it, the classifier reads `def total` as part of the
 invoice and `def send_email` as a different job.
 
-A part that is empty for some elements is reported after the run. When `element` finds nothing, or your
+A part that is empty for some elements is reported after the run. When `getElement` finds nothing, or your
 function throws, that element gets an error and the run goes on.
 
 When the question itself changes from one element to the next, write `classify(self, ctx)` instead.
