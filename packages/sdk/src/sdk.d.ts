@@ -20,6 +20,9 @@ declare module "jint:sdk" {
     readonly grammar: string;
     /** The capture name: a shared capture or the grammar-declared autonomous one. */
     readonly capture: import("./core/types.ts").ElementCapture;
+    /** What the element is called: a definition's name, a heading's text. Absent when it has none. */
+    readonly name?: string;
+    /** The element's text, less what its grammar omits from the capture. */
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };
@@ -43,7 +46,10 @@ declare module "jint:sdk" {
      * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
      */
     readonly docstringOf?: import("@jint/contract").DocstringOwner;
+    /** The enclosing element, when this element sits inside one; null at the top level. */
     readonly parent: CustomElement | null;
+    /** The elements directly inside this one, in file order. */
+    readonly children: readonly CustomElement[];
   }
 
   /** The rule's environment, assembled after target resolution. */
@@ -58,6 +64,8 @@ declare module "jint:sdk" {
     readonly definitions: readonly CustomElement[];
     readonly comments: readonly CustomElement[];
     readonly imports: readonly CustomElement[];
+    /** Every element in the file, in file order. */
+    readonly elements: readonly CustomElement[];
   }
 
   /** Classify's environment: the rule's context plus the file of the element being judged. */
@@ -89,11 +97,40 @@ declare module "jint:sdk" {
     readonly message?: string;
   }
 
-  /** A custom rule: request (target), per-element compiler (classify), and exactly one policy. */
-  export interface CustomRule {
+  /** The part of a state a rule composes for one element; a part with no value is left out. */
+  export type ComposeState = (
+    self: CustomElement,
+    ctx: ClassifyContext,
+  ) => Readonly<Record<string, unknown>>;
+
+  /** A question that is the same for every element, and the state that differs. */
+  export interface ComposedQuestion {
+    readonly instructions: string;
+    readonly criteria: { readonly true: string; readonly false: string };
+    readonly state: ComposeState;
+    readonly classify?: undefined;
+  }
+
+  /** A question composed per element, its state included. */
+  export interface ClassifiedQuestion {
+    /**
+     * Per resolved target: the state spec for that element. Returns data, never calls the
+     * classifier.
+     */
+    readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
+    readonly state?: undefined;
+    readonly instructions?: undefined;
+    readonly criteria?: undefined;
+  }
+
+  /** A custom rule: request (target), the question it asks of each element, and exactly one policy. */
+  export type CustomRule = CustomRuleBase & (ComposedQuestion | ClassifiedQuestion);
+
+  export interface CustomRuleBase {
     readonly name: string;
     readonly kind?: "noul";
     readonly target:
+      | `${string}:${string}`
       | "functions"
       | "classes"
       | "methods"
@@ -105,7 +142,6 @@ declare module "jint:sdk" {
       | "imports"
       | readonly string[]
       | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-    readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
     /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */

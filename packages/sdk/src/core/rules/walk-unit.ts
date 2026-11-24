@@ -11,6 +11,7 @@ import {
   type Inventory,
   type InventoryElement,
 } from "../grammars/walk.ts";
+import type { Coverage } from "../grammars/coverage.ts";
 import type { Unit } from "../types.ts";
 
 /** What a walk reads from the run: the grammar choice and the element size backstop. */
@@ -36,6 +37,8 @@ export interface WalkedUnit {
   /** Why the unit could not be mapped to elements (file units only); streamed as an error. */
   readonly failed: string | null;
   readonly failedCause: unknown;
+  /** Absent when nothing was parsed. */
+  readonly coverage?: Coverage;
 }
 
 function missingGrammarReason(unit: Unit): string {
@@ -74,8 +77,15 @@ export async function walkUnit(unit: Unit, options: WalkUnitOptions = {}): Promi
         failed:
           "no definitions, comments, or imports found — element-target rules cannot measure this file (per-rule exclude it if that is intentional)",
         failedCause: undefined,
+        coverage: parsedSource.coverage,
       };
-    return { inventory, derived: parsedSource, failed: null, failedCause: undefined };
+    return {
+      inventory,
+      derived: parsedSource,
+      failed: null,
+      failedCause: undefined,
+      coverage: parsedSource.coverage,
+    };
   } catch (thrown) {
     const detail = thrown instanceof Error ? thrown.message : String(thrown);
     return { inventory: [], failed: `parse failed: ${detail}`, failedCause: thrown };

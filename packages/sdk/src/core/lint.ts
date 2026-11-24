@@ -11,6 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { CoverageTally } from "./grammars/coverage.ts";
 import { loadCustomGrammars } from "./grammars/grammars.ts";
 import { assertCaptureAddress } from "./grammars/query.ts";
 import {
@@ -424,6 +425,18 @@ async function* admitUnits(
 
 type WalkedInventories = Awaited<ReturnType<typeof walkedInventories>>["walked"];
 
+function coverageNotes(
+  units: readonly Unit[],
+  walked: WalkedInventories,
+  registry: GrammarRegistry,
+): string[] {
+  const tally = new CoverageTally();
+  for (const [i, { coverage }] of walked) {
+    if (coverage !== undefined) tally.add(units[i]!.state.path, coverage);
+  }
+  return tally.notes(registry);
+}
+
 async function* walkUnits(
   options: LintOptions,
   setup: RunSetup,
@@ -453,6 +466,7 @@ async function* walkUnits(
   if (skippedExtensions.size > 0) {
     yield { type: "note", note: sweepCoverageNote(skippedExtensions, registry) };
   }
+  for (const note of coverageNotes(units, walked, registry)) yield { type: "note", note };
   if (options.element !== undefined) {
     const w = walked.get(0);
     if (w === undefined)

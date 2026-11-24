@@ -14,6 +14,7 @@
  */
 
 import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
+import { type Coverage } from "./coverage.ts";
 import { extendQueries, isExtension } from "./extends.ts";
 import {
   grammar,
@@ -57,6 +58,7 @@ import {
   sharedDefinitionDefault,
   sharedPolicyDefault,
 } from "./shared.ts";
+import type { Node } from "web-tree-sitter";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -138,6 +140,7 @@ export interface Inventory {
   readonly comments: InventoryElement[];
   /** Exactly one merged element when the file has imports; empty otherwise. */
   readonly imports: InventoryElement[];
+  readonly coverage: Coverage;
 }
 
 /**
@@ -845,6 +848,13 @@ function materialize(
   };
 }
 
+/** The types of a file's top nodes; a grammar that wraps the whole file in one node is looked into. */
+function topNodeTypes(root: Node): string[] {
+  const only = root.namedChildCount === 1 ? root.namedChild(0) : null;
+  const inside = only !== null && only.namedChildCount > 0 ? only : root;
+  return inside.namedChildren.flatMap((node) => (node === null ? [] : [node.type]));
+}
+
 export async function decompose(
   source: string,
   language: string,
@@ -875,8 +885,9 @@ export async function decompose(
   try {
     const collected = new Map<string, Stretch[]>();
     for (const omitted of scmCaptureOmits(scm).values()) collected.set(omitted, []);
+    const matched = new Set<string>();
     const candidates = resolveCandidates(
-      runQuery(query, tree.rootNode, resolveAddressable(scm), collected),
+      runQuery(query, tree.rootNode, resolveAddressable(scm), collected, matched),
       resolveSuppression(scm),
     );
     const definitionCaptures = resolveDefinitionCaptures(scm);
@@ -888,7 +899,13 @@ export async function decompose(
       scmCaptureMerges(scm),
       omissionsOf(scm, collected),
     );
+    const captured = definitions.length + comments.length + imports.length > 0;
     return {
+      coverage: {
+        language,
+        matched: [...matched],
+        uncaptured: captured ? undefined : topNodeTypes(tree.rootNode),
+      },
       hasError: tree.rootNode.hasError,
       provenance: entry.provenance,
       definitions: applySizeBackstop(definitions, backstop),

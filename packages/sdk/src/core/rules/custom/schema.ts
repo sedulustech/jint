@@ -27,6 +27,9 @@ export interface CustomElement {
   readonly capture: import("../../types.ts").ElementCapture;
   /** The grammar that extracted this element (the qualified capture address resolves against it). */
   readonly grammar: string;
+  /** What the element is called: a definition's name, a heading's text. Absent when it has none. */
+  readonly name?: string;
+  /** The element's text, less what its grammar omits from the capture. */
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };
@@ -52,6 +55,8 @@ export interface CustomElement {
   readonly docstringOf?: import("../../types.ts").DocstringOwner;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
+  /** The elements directly inside this one, in file order. */
+  readonly children: readonly CustomElement[];
 }
 
 /** The rule's environment, assembled by the engine after target resolution. */
@@ -73,6 +78,8 @@ export interface CustomFile {
   readonly definitions: readonly CustomElement[];
   readonly comments: readonly CustomElement[];
   readonly imports: readonly CustomElement[];
+  /** Every element in the file, in file order. */
+  readonly elements: readonly CustomElement[];
 }
 
 /** Classify's environment: the rule's context plus the file of the element being judged. */
@@ -104,16 +111,42 @@ export interface CustomDecision {
   readonly message?: string;
 }
 
+/** The part of a state a rule composes for one element; a part with no value is left out. */
+export type ComposeState = (
+  self: CustomElement,
+  ctx: ClassifyContext,
+) => Readonly<Record<string, unknown>>;
+
+/** A question that is the same for every element, and the state that differs. */
+export interface ComposedQuestion {
+  readonly instructions: string;
+  readonly criteria: { readonly true: string; readonly false: string };
+  readonly state: ComposeState;
+  readonly classify?: undefined;
+}
+
+/** A question composed per element, its state included. */
+export interface ClassifiedQuestion {
+  /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
+  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
+  readonly state?: undefined;
+  readonly instructions?: undefined;
+  readonly criteria?: undefined;
+}
+
 /**
- * A custom rule: name, target (the REQUEST), the per-element state-schema compiler, and its one
+ * A custom rule: name, target (the REQUEST), the question it asks of each element, and its one
  * policy, handle (required — data or a function; a classification-only rule silences itself with ()
- * => []). classify returns ONE spec per call; jint fans it out across the rule's resolved targets.
- * noul-only in v1 — the other kinds are rejected at load.
+ * => []). The question is asked once for each resolved target. noul-only in v1 — the other kinds
+ * are rejected at load.
  */
-export interface CustomRule {
+export type CustomRule = CustomRuleBase & (ComposedQuestion | ClassifiedQuestion);
+
+export interface CustomRuleBase {
   readonly name: string;
   readonly kind?: "noul";
   readonly target:
+    | `${string}:${string}`
     | "functions"
     | "classes"
     | "methods"
@@ -125,8 +158,6 @@ export interface CustomRule {
     | "imports"
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-  /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
   /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
@@ -277,6 +308,32 @@ function validTarget(target: CustomRule["target"]): boolean {
     (Array.isArray(target) && target.length > 0 && target.every((t) => isTargetable(t)))
   );
 }
+const QUESTION_SCHEMA = Type.Object({
+  instructions: Type.String(),
+  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
+});
+
+function checkQuestion(rule: Record<string, unknown>): string | null {
+  if (typeof rule.classify === "function") {
+    const extra = ["state", "instructions", "criteria"].find((key) => rule[key] !== undefined);
+    return extra === undefined
+      ? null
+      : `${extra} and classify - classify returns all of the question`;
+  }
+  if (typeof rule.state !== "function") return "missing state(self, ctx) or classify(self, ctx)";
+  return Value.Check(QUESTION_SCHEMA, rule)
+    ? null
+    : "state needs instructions and criteria { true, false } beside it";
+}
+
+/** A callback rule asks its question through a function; a declarative rule has none. */
+export function isCustomRule(rule: object): rule is CustomRule {
+  return (
+    ("classify" in rule && typeof rule.classify === "function") ||
+    ("state" in rule && typeof rule.state === "function")
+  );
+}
+
 export function validateCustomRule(rule: unknown, file: string): CustomRule {
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "custom rule in " + file + ": " + message);
@@ -303,7 +360,8 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
         ", a non-empty list of them, or an (elements) => Element[] function",
     );
   }
-  if (typeof r.classify !== "function") fail('"' + name + '": missing classify(self, ctx)');
+  const questionProblem = checkQuestion(r);
+  if (questionProblem !== null) fail('"' + name + '": ' + questionProblem);
   // Scoping reuses the shared checker: bad shapes and field-naming messages cannot drift between tiers.
   const scopeProblem = checkRuleScope({
     include: r.include as readonly string[] | undefined,

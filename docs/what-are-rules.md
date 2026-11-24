@@ -49,13 +49,16 @@ wins. A rule about React components, for example, should only read `**/*.tsx` fi
 
 ## Custom rules
 
-A declarative rule asks the same question of every element. When the question needs more context,
-write `classify(self, ctx)`. It runs once for each captured element and returns the instructions,
-the criteria and a `state`: anything you want the classifier to see, such as the element's source,
-its parent or its siblings. `ctx.file` is the file the element sits in: its `path`, its `source`,
-and its `definitions`, `comments` and `imports`.
+A declarative rule asks the same question of every element. When the answer needs more than the
+element, write `state(self, ctx)`. It runs once for each captured element and returns the parts the
+classifier reads. Each element has a `name`, its `source`, its `parent` and its `children`.
+`ctx.file` is the file the element sits in: its `path`, its `source`, and its `elements` in file
+order. A part that is empty for some elements is reported after the run.
 
-A rule with a `classify` function, a function `target` or a function `handle` is a custom rule. It
+When the question itself changes from one element to the next, write `classify(self, ctx)` instead.
+It returns the instructions, the criteria and the state.
+
+A rule with a `state` or `classify` function, a function `target` or a function `handle` is a custom rule. It
 works only in `jint.config.ts`, and declarative rules beside it compile as usual.
 
 ```ts
@@ -67,16 +70,14 @@ export default defineConfig({
       {
         name: "is_method_in_its_class",
         target: "methods",
-        classify: (self) => ({
-          instructions: "Does this method belong in the class that contains it?",
-          criteria: {
-            true: "The method works on what the class models.",
-            false: "The method does a different job from the one the class models.",
-          },
-          state: {
-            method: self.source,
-            class: self.parent?.source.split("\n")[0],
-          },
+        instructions: "Does this method belong in the class that contains it?",
+        criteria: {
+          true: "The method works on what the class models.",
+          false: "The method does a different job from the one the class models.",
+        },
+        state: (self) => ({
+          method: self.source,
+          class: self.parent?.name,
         }),
         handle: { warn: { less_than: 0.6 }, error: { less_than: 0.3 } },
       },

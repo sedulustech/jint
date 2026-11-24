@@ -443,6 +443,18 @@ export function scmEmittedNames(scm: string): ReadonlySet<string> {
   return named;
 }
 
+/** Each emitted capture and the line that first names it. */
+export function scmEmittedLines(scm: string): ReadonlyMap<string, number> {
+  const emitted = scmEmittedNames(scm);
+  const lines = new Map<string, number>();
+  for (const [i, line] of scmCode(scm).split("\n").entries()) {
+    for (const [, capture] of line.matchAll(CAPTURE_TOKEN)) {
+      if (emitted.has(capture!) && !lines.has(capture!)) lines.set(capture!, i + 1);
+    }
+  }
+  return lines;
+}
+
 /** One grammar's declared capture facts, resolved from its .scm directives. */
 export interface CaptureDeclarations {
   /** Captures explicitly declared definitions ("true") - an autonomous capture's element-hood. */
@@ -1032,11 +1044,15 @@ export function runQuery(
   addressable: ReadonlySet<string> = DEFAULT_ADDRESSABLE,
   /** Filled with the nodes of each capture it already names. */
   collected: ReadonlyMap<string, Stretch[]> = new Map(),
+  /** Filled with every capture name a match binds. */
+  matched: Set<string> = new Set(),
 ): Candidate[] {
   const candidates: Candidate[] = [];
   for (const match of query.matches(rootNode as never)) {
-    for (const { name, node } of match.captures)
+    for (const { name, node } of match.captures) {
+      matched.add(name);
       collected.get(name)?.push({ start: node.startIndex, end: node.endIndex });
+    }
     const candidate = candidateOf(match, addressable);
     if (candidate !== null) candidates.push(candidate);
   }

@@ -380,11 +380,13 @@ function isCallbackRule(entry: unknown): boolean {
   if (typeof entry !== "object" || entry === null) return false;
   const r = entry as {
     classify?: unknown;
+    state?: unknown;
     handle?: unknown;
     target?: unknown;
   };
   return (
     typeof r.classify === "function" ||
+    typeof r.state === "function" ||
     typeof r.handle === "function" ||
     typeof r.target === "function"
   );

@@ -37,14 +37,10 @@ import {
 import type { InventoryElement } from "../../grammars/walk.ts";
 
 /**
- * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are
- * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
- * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
+ * One file's elements for rules, in file order. A dangling parent label is an inventory
+ * inconsistency: it throws, never silently nulls.
  */
-export function tsElementsOf(
-  inventory: readonly InventoryElement[],
-  path: string,
-): CustomElement[] {
+function fileElementsOf(inventory: readonly InventoryElement[], path: string): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
   const convert = (e: InventoryElement): CustomElement => {
@@ -67,6 +63,7 @@ export function tsElementsOf(
       path,
       capture: e.capture,
       grammar: e.grammar,
+      name: e.name,
       source: e.content,
       span: {
         start: e.span.start,
@@ -80,11 +77,36 @@ export function tsElementsOf(
       docstringCount: e.docstringCount,
       docstringOf: e.docstringOf,
       parent: parent ? convert(parent) : null,
+      children: [],
     };
+    // an element reaches its parent, so a listed child would make it a cycle that JSON refuses
+    Object.defineProperty(element, "children", { enumerable: false });
     cache.set(e.label, element);
     return element;
   };
-  return inventory.filter((e) => e.oversized !== true).map(convert);
+  const elements = [...inventory]
+    .sort((a, b) => a.span.startByte - b.span.startByte || b.span.endByte - a.span.endByte)
+    .map(convert);
+  for (const element of elements) {
+    (element.parent?.children as CustomElement[] | undefined)?.push(element);
+  }
+  return elements;
+}
+
+/** The elements of one file a rule may target: an oversized one is never judged. */
+export function tsElementsOf(
+  inventory: readonly InventoryElement[],
+  path: string,
+): CustomElement[] {
+  return judgeable(inventory, fileElementsOf(inventory, path));
+}
+
+function judgeable(
+  inventory: readonly InventoryElement[],
+  elements: readonly CustomElement[],
+): CustomElement[] {
+  const byLabel = new Map(elements.map((e) => [e.label, e]));
+  return inventory.filter((e) => e.oversized !== true).map((e) => byLabel.get(e.label)!);
 }
 
 export type ResolvedCustomTarget =
@@ -106,8 +128,11 @@ export function resolveAllCustomTargets(
   sourceByPath: ReadonlyMap<string, string> = new Map(),
 ): ResolvedCustomTargets {
   const elementsByPath = new Map<string, readonly CustomElement[]>();
+  const fileElements = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
-    elementsByPath.set(path, tsElementsOf(inventory, path));
+    const elements = fileElementsOf(inventory, path);
+    fileElements.set(path, elements);
+    elementsByPath.set(path, judgeable(inventory, elements));
   }
   const allElements = [...elementsByPath.values()].flat();
   const rules = new Map<CustomRule, ResolvedCustomTarget>();
@@ -120,7 +145,12 @@ export function resolveAllCustomTargets(
       if (!files.has(path)) {
         files.set(
           path,
-          customFileOf(path, sourceByPath.get(path) ?? "", elementsByPath.get(path)!),
+          customFileOf(
+            path,
+            sourceByPath.get(path) ?? "",
+            elementsByPath.get(path)!,
+            fileElements.get(path)!,
+          ),
         );
       }
     }
@@ -132,6 +162,7 @@ function customFileOf(
   path: string,
   source: string,
   elements: readonly CustomElement[],
+  all: readonly CustomElement[] = elements,
 ): CustomFile {
   return {
     path,
@@ -139,6 +170,7 @@ function customFileOf(
     definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
     comments: elements.filter((e) => e.capture === "comment"),
     imports: elements.filter((e) => e.capture === "import"),
+    elements: all,
   };
 }
 
@@ -217,6 +249,7 @@ interface Measured {
   readonly events: LintEvent[];
   readonly value?: number;
   readonly fatal?: boolean;
+  readonly state?: object;
 }
 
 function elementOf(element: CustomElement): Element {
@@ -244,6 +277,14 @@ function classificationEvent(
   };
 }
 
+function questionOf(rule: CustomRule, element: CustomElement, ctx: ClassifyContext): unknown {
+  if (rule.classify !== undefined) return rule.classify(element, ctx);
+  const { instructions, criteria } = rule;
+  const state = rule.state(element, ctx);
+  if (isPromise(state)) throw new Error("state returned a Promise — handlers are sync-only in v1");
+  return { instructions, criteria, state };
+}
+
 /** The rule's state for one element, or the error that says why it has none. */
 function stateFor(
   rule: CustomRule,
@@ -252,7 +293,7 @@ function stateFor(
 ): ReturnType<typeof validateStateSpec> {
   const input = inputOf(element);
   try {
-    const spec = rule.classify(element, ctx);
+    const spec = questionOf(rule, element, ctx);
     if (isPromise(spec)) {
       throw new Error("classify returned a Promise — handlers are sync-only in v1");
     }
@@ -291,10 +332,13 @@ async function measure(
     const note = `custom rule "${rule.name}": state part "${part}" for ${input} exceeds ${limits.partLimit} tokens - skipped`;
     return { events: [{ type: "note", note }] };
   }
-  return answered(rule, element, stateSpec, classifier).catch((thrown: unknown) => {
-    const error = toClassifyError(input, thrown);
-    return { events: [{ type: "error", error }], fatal: error.code === "PROVIDER_AUTH" };
-  });
+  const result: Measured = await answered(rule, element, stateSpec, classifier).catch(
+    (thrown: unknown) => {
+      const error = toClassifyError(input, thrown);
+      return { events: [{ type: "error", error }], fatal: error.code === "PROVIDER_AUTH" };
+    },
+  );
+  return { ...result, state: stateSpec.state };
 }
 
 /** The rule's one question asked of the state it composed, and the reading that came back. */
@@ -389,6 +433,31 @@ function resolutionEvents(rule: CustomRule, resolved: ResolvedCustomTarget): Lin
   ];
 }
 
+interface ComposedState {
+  readonly element: CustomElement;
+  readonly state: object;
+}
+
+function isEmptyPart(part: unknown): boolean {
+  if (typeof part === "string") return part.trim() === "";
+  return part === undefined || part === null || (Array.isArray(part) && part.length === 0);
+}
+
+/** One note for each part of a rule's state that was empty, per capture it was composed for. */
+function emptyPartNotes(rule: CustomRule, states: readonly ComposedState[]): LintEvent[] {
+  const events: LintEvent[] = [];
+  for (const [capture, composed] of Map.groupBy(states, (s) => s.element.capture)) {
+    const parts = new Set(composed.flatMap((s) => Object.keys(s.state)));
+    for (const part of parts) {
+      const empty = composed.filter((s) => isEmptyPart(Reflect.get(s.state, part))).length;
+      if (empty === 0) continue;
+      const note = `custom rule "${rule.name}": ${part}: empty in ${empty} of ${composed.length} ${capture}`;
+      events.push({ type: "note", note });
+    }
+  }
+  return events;
+}
+
 /** Judges one rule's targets in order, then applies its policy; stops at an abort or a fatal error. */
 async function runRule(
   rule: CustomRule,
@@ -403,6 +472,7 @@ async function runRule(
     files.get(element.path) ?? customFileOf(element.path, "", [element]);
   const events: LintEvent[] = [];
   const measured: { element: CustomElement; value: number }[] = [];
+  const states: ComposedState[] = [];
   let fatal = false;
   for (const element of targets) {
     if (isAborted() || fatal) break;
@@ -415,9 +485,10 @@ async function runRule(
     );
     events.push(...result.events);
     fatal = result.fatal === true;
+    if (result.state !== undefined) states.push({ element, state: result.state });
     if (result.value !== undefined) measured.push({ element, value: result.value });
   }
-  events.push(...policyEvents(rule, ctx, measured));
+  events.push(...emptyPartNotes(rule, states), ...policyEvents(rule, ctx, measured));
   return { events, fatal };
 }
 
