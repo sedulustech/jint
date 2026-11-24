@@ -21,6 +21,27 @@ const sections = (data as unknown as RefPages)[page];
           {inline(section.intro).map((part) => (part.kind === "code" ? <code>{part.text}</code> : part.text))}
         </p>
       )}
+      {section.table !== undefined && (
+        <table>
+          <thead>
+            <tr>
+              {section.table.columns.map((column) => (
+                <th>{column}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {section.table.rows.map(([value, meaning]) => (
+              <tr>
+                <td>
+                  <code>{value}</code>
+                </td>
+                <td>{meaning}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {section.entries.map((entry: RefEntry) => (
         <ReferenceEntry {entry} />
       ))}

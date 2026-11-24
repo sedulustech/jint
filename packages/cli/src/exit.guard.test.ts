@@ -54,6 +54,9 @@ describe("exit-code table guard", () => {
 
   test("the CLI reference lists every row of the table", () => {
     const page = readFileSync(join(SRC, "..", "..", "..", "docs", "reference", "cli.md"), "utf8");
-    for (const row of EXIT_CODES) expect(page).toContain(`### \`${row.code}\`\n\n${row.meaning}\n`);
+    const rows = page.split("\n").map((line) => line.split("|").map((cell) => cell.trim()));
+    for (const row of EXIT_CODES) {
+      expect(rows).toContainEqual(["", `\`${row.code}\``, row.meaning, ""]);
+    }
   });
 });
