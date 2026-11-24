@@ -29,8 +29,8 @@ const INVENTORY: readonly Row[] = [
   { id: "front", kind: "frontmatter", start: [1, 0], end: [5, 0] },
   { kind: "pair", start: [2, 0], end: [2, 14], name: "title", parent: "front" },
   { kind: "pair", start: [3, 0], end: [3, 41], name: "description", parent: "front" },
-  { id: "install", kind: "h1", start: [6, 0], end: [9, 0], name: "Install" },
-  { kind: "heading", start: [6, 0], end: [7, 0], parent: "install" },
+  { id: "install", kind: "h1.section", start: [6, 0], end: [9, 0], name: "Install" },
+  { kind: "h1", start: [6, 0], end: [7, 0], name: "Install", parent: "install" },
   { kind: "paragraph", start: [8, 0], end: [9, 0], parent: "install" },
 ];
 

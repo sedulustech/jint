@@ -118,7 +118,7 @@
                             "type": "string"
                           },
                           {
-                            "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                            "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                             "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                             "type": "string"
                           },
@@ -167,7 +167,7 @@
                                   "type": "string"
                                 },
                                 {
-                                  "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                                  "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                                   "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                                   "type": "string"
                                 }
@@ -518,7 +518,7 @@
                             "type": "string"
                           },
                           {
-                            "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                            "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                             "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                             "type": "string"
                           },
@@ -567,7 +567,7 @@
                                   "type": "string"
                                 },
                                 {
-                                  "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                                  "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                                   "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                                   "type": "string"
                                 }
@@ -920,7 +920,7 @@
                             "type": "string"
                           },
                           {
-                            "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                            "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                             "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                             "type": "string"
                           },
@@ -969,7 +969,7 @@
                                   "type": "string"
                                 },
                                 {
-                                  "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                                  "pattern": "^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)*)$",
                                   "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                                   "type": "string"
                                 }

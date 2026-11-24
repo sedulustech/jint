@@ -19,7 +19,7 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 const GRAMMARS_DIR = join(import.meta.dir, "fixtures", "grammars");
 const DIR = scratchDir("jint-byog-e2e");
 
-// The input: two headings, three paragraphs. Under the EMBEDDED .scm, markdown:section resolves the
+// The input: two headings, three paragraphs. Under the EMBEDDED .scm, markdown:h1.section and h2.section resolve the
 // heading sections (L1-L10 and L5-L10) and markdown:paragraph the three prose runs. Under the SHADOW
 // .scm the mapping inverts: markdown:section resolves the three PROSE runs, and markdown:paragraph
 // (which the shadow never emits) resolves nothing.
@@ -105,7 +105,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
 
   test("the embedded mapping is the contrast: without the shadow dir the same file yields its headings", async () => {
     const dir = setup("embedded", [
-      noulRule("probe_embedded_section", ["markdown:h1", "markdown:h2"]),
+      noulRule("probe_embedded_section", ["markdown:h1.section", "markdown:h2.section"]),
     ]);
     const empty = scratchDir("jint-byog-empty");
     try {

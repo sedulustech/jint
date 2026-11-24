@@ -76,8 +76,8 @@ target: "files",
 state: (file) => ({
   title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
   sections: file
-    .getElement("markdown:h1")
-    .getElements("markdown:h2")
+    .getElement("markdown:h1.section")
+    .getElements("markdown:h2.section")
     .map((section) => section.name),
 }),
 ```

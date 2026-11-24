@@ -13,7 +13,7 @@ export const is_doc_title_vague: CustomRule = {
   target: "files",
   state: (file: CustomElement) => ({
     metaTitle: searchTitle(file.getElement("markdown:frontmatter")),
-    pageContent: file.getElement("markdown:h1").source,
+    pageContent: file.getElement("markdown:h1.section").source,
   }),
 };
 

@@ -72,10 +72,10 @@ demands action.
   captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
   source, no manifest involvement); an unknown grammar or an unemitted capture is a setup error,
   never a silent no-match. The bare form is schema-rejected.
-- **`h1`–`h6`** — markdown's heading-level captures: a heading plus everything under it, one
-  capture per level (`markdown:h4` is every `####` section). A section holds the deeper levels.
-- **heading** — markdown's heading line alone, marks included (@heading). A section that holds
-  only its heading is one element, the section.
+- **`h1.section`–`h6.section`** — markdown's heading and everything under it, down to the next
+  heading of its level or a higher one.
+- **`h1`–`h6`** — markdown's heading line alone, marks included, one capture per level
+  (`markdown:h4` is every `####` line). Its parent is its section.
 - **code_block**, **code** — markdown's whole fence, and the text inside it. An indented block is
   `code` alone.
 - **list** — markdown's whole-list capture (@list, md-only): one element per bullet or ordered

@@ -13,28 +13,71 @@ import { capture, type CapturedElement } from "../../index.ts";
 type Case = readonly [shape: string, source: string, expected: readonly string[]];
 
 const HEADINGS: readonly Case[] = [
-  ["a heading and its body", "# A\n\nx\n", ["h1 A", "heading < h1", "paragraph < h1"]],
-  ["no blank line after a heading", "## B\nx\n", ["h2 B", "heading < h2", "paragraph < h2"]],
-  ["closing hashes", "## B ##\n\nx\n", ["h2 B", "heading < h2", "paragraph < h2"]],
-  ["a hash that is part of the title", "## C#\n\nx\n", ["h2 C#", "heading < h2", "paragraph < h2"]],
-  ["inline marks", "## `a` and *b*\n\nx\n", ["h2 `a` and *b*", "heading < h2", "paragraph < h2"]],
-  ["an empty heading", "#\n\nx\n", ["h1", "heading < h1", "paragraph < h1"]],
-  // the heading's node and the section's have one span, and one span is one element
-  ["a heading with nothing under it", "# A\n", ["h1 A"]],
-  ["a heading with only a heading under it", "# A\n## B\n", ["h1 A", "heading < h1", "h2 B < h1"]],
-  ["a skipped level", "# A\n\n### C\n", ["h1 A", "heading < h1", "h3 C < h1"]],
+  [
+    "a heading and its body",
+    "# A\n\nx\n",
+    ["h1.section A", "h1 A < h1.section", "paragraph < h1.section"],
+  ],
+  [
+    "no blank line after a heading",
+    "## B\nx\n",
+    ["h2.section B", "h2 B < h2.section", "paragraph < h2.section"],
+  ],
+  [
+    "closing hashes",
+    "## B ##\n\nx\n",
+    ["h2.section B", "h2 B < h2.section", "paragraph < h2.section"],
+  ],
+  [
+    "a hash that is part of the title",
+    "## C#\n\nx\n",
+    ["h2.section C#", "h2 C# < h2.section", "paragraph < h2.section"],
+  ],
+  [
+    "inline marks",
+    "## `a` and *b*\n\nx\n",
+    ["h2.section `a` and *b*", "h2 `a` and *b* < h2.section", "paragraph < h2.section"],
+  ],
+  ["an empty heading", "#\n\nx\n", ["h1.section", "h1 < h1.section", "paragraph < h1.section"]],
+  // the two have one span, and both are elements
+  ["a heading with nothing under it", "# A\n", ["h1.section A", "h1 A < h1.section"]],
+  [
+    "a heading with only a heading under it",
+    "# A\n## B\n",
+    ["h1.section A", "h1 A < h1.section", "h2.section B < h1.section", "h2 B < h2.section"],
+  ],
+  [
+    "a skipped level",
+    "# A\n\n### C\n",
+    ["h1.section A", "h1 A < h1.section", "h3.section C < h1.section", "h3 C < h3.section"],
+  ],
   [
     "the same title twice",
     "## A\n\nx\n\n## A\n\ny\n",
-    ["h2 A", "heading < h2", "paragraph < h2", "h2 A", "heading < h2", "paragraph < h2"],
+    [
+      "h2.section A",
+      "h2 A < h2.section",
+      "paragraph < h2.section",
+      "h2.section A",
+      "h2 A < h2.section",
+      "paragraph < h2.section",
+    ],
   ],
-  ["text before the first heading", "x\n\n# A\n", ["paragraph", "h1 A"]],
+  [
+    "text before the first heading",
+    "x\n\n# A\n",
+    ["paragraph", "h1.section A", "h1 A < h1.section"],
+  ],
   ["seven hashes", "####### A\n", ["paragraph"]],
-  ["a heading in a quote", "> ## Q\n>\n> x\n", ["h2 Q", "heading < h2", "paragraph < h2"]],
+  [
+    "a heading in a quote",
+    "> ## Q\n>\n> x\n",
+    ["h2.section Q", "h2 Q < h2.section", "paragraph < h2.section"],
+  ],
   [
     "a heading in a list",
     "- # L\n\n  x\n",
-    ["list", "h1 L < list", "heading < h1", "paragraph < h1"],
+    ["list", "h1.section L < list", "h1 L < h1.section", "paragraph < h1.section"],
   ],
   // the parser makes no section for an underlined heading
   ["setext headings", "A\n=\n\nx\n\nB\n-\n", ["paragraph"]],
@@ -52,7 +95,7 @@ const CODE: readonly Case[] = [
   [
     "a fence under a heading",
     "# A\n\n```sh\nx\n```\n",
-    ["h1 A", "heading < h1", "code_block < h1", "code < code_block"],
+    ["h1.section A", "h1 A < h1.section", "code_block < h1.section", "code < code_block"],
   ],
   [
     "a fence in a list",
@@ -69,8 +112,8 @@ const PROSE: readonly Case[] = [
   ["a quote", "> one\n> two\n", ["paragraph"]],
   ["an admonition", "> [!NOTE]\n> x\n", ["paragraph"]],
   ["an image", "![x](a.png)\n", ["paragraph"]],
-  ["no final newline", "# A\n\nx", ["h1 A", "heading < h1", "paragraph < h1"]],
-  ["CRLF", "# A\r\n\r\nx\r\n", ["h1 A", "heading < h1", "paragraph < h1"]],
+  ["no final newline", "# A\n\nx", ["h1.section A", "h1 A < h1.section", "paragraph < h1.section"]],
+  ["CRLF", "# A\r\n\r\nx\r\n", ["h1.section A", "h1 A < h1.section", "paragraph < h1.section"]],
   ["a list", "- a\n- b\n", ["list", "list_item < list", "list_item < list"]],
   ["a loose list", "- a\n\n- b\n", ["list", "list_item < list", "list_item < list"]],
   ["a task list", "- [ ] a\n- [x] b\n", ["list", "list_item < list", "list_item < list"]],
@@ -148,7 +191,7 @@ describe("an element's text", () => {
 
   test("a section is its source as written, markers included", async () => {
     const source = "# A\n\n> one\n> two\n";
-    expect(textOf(await elementsOf(source), "h1")).toBe(source);
+    expect(textOf(await elementsOf(source), "h1.section")).toBe(source);
   });
 
   test("outside a quote or a list, text is the span's slice", async () => {

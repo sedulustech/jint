@@ -4,6 +4,7 @@
  * as typed errors. Deciding severity is the handle callback's job, never this seam's.
  */
 
+import { CAPTURE_ADDRESS } from "../grammars/capture-address.ts";
 import {
   charsToTokens,
   fileElement,
@@ -344,7 +345,7 @@ export function matchesTarget(target: string, element: TargetableElement): boole
     case "files":
       return false;
     default: {
-      const qualified = target.match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/);
+      const qualified = target.match(CAPTURE_ADDRESS);
       if (qualified === null) {
         throw new InternalError("unvalidated rule target reached the evaluator: " + target);
       }

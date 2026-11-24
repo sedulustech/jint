@@ -206,7 +206,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     }
     const md = elements.filter((e) => e.grammar === "markdown");
     const ts = elements.filter((e) => e.grammar === "typescript");
-    expect(md.every((e) => /^(h[1-6]|heading|paragraph)$/.test(e.kind))).toBe(true);
+    expect(md.every((e) => /^(h[1-6](?:\.section)?|paragraph)$/.test(e.kind))).toBe(true);
     expect(ts.map((e) => e.kind)).toContain("function");
     expect(ts.every((e) => e.input.endsWith(".ts"))).toBe(true);
   });

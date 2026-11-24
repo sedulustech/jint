@@ -30,17 +30,17 @@ const INVENTORY: readonly Row[] = [
   // the headingless preamble: its PARAGRAPH captures, its section never does (queries.scm: the
   // section carrier requires an atx_heading) - so this paragraph has no parent
   { kind: "paragraph", start: [1, 0], end: [2, 0] },
-  // atx heading + everything under it: the section is the whole entry, captured by its level (#
-  // = h1), named by the heading text with the marker stripped, and it runs to EOF (L63)
-  { kind: "h1", start: [3, 0], end: [63, 0], name: "Top section" },
-  // the heading line alone, marks included: the first child of its section
-  { kind: "heading", start: [3, 0], end: [4, 0], parent: "d1" },
+  // atx heading + everything under it: the section is the whole entry, named by
+  // the heading text with the marker stripped, and it runs to EOF (L63)
+  { kind: "h1.section", start: [3, 0], end: [63, 0], name: "Top section" },
+  // the heading line alone, captured by its level, marks included: the first child of its section
+  { kind: "h1", start: [3, 0], end: [4, 0], name: "Top section", parent: "d1" },
   { kind: "paragraph", start: [5, 0], end: [6, 0], parent: "d1" },
   // the wrapped paragraph: three source lines, ONE element, continuations inside the span
   { kind: "paragraph", start: [7, 0], end: [10, 0], parent: "d1" },
-  // sections nest: the ## section (h2) is an element INSIDE the # section (h1)
-  { kind: "h2", start: [11, 0], end: [50, 0], name: "Nested section", parent: "d1" },
-  { kind: "heading", start: [11, 0], end: [12, 0], parent: "d5" },
+  // sections nest: the ## section is an element INSIDE the # section
+  { kind: "h2.section", start: [11, 0], end: [50, 0], name: "Nested section", parent: "d1" },
+  { kind: "h2", start: [11, 0], end: [12, 0], name: "Nested section", parent: "d5" },
   // a list is ONE element per bullet/ordered list, markers KEPT in its text; its span runs
   // through the trailing blank lines to the next block's start (ends [18,0] = the dash list)
   { kind: "list", start: [13, 0], end: [18, 0], parent: "d5" },
@@ -79,19 +79,19 @@ const INVENTORY: readonly Row[] = [
   { kind: "paragraph", start: [46, 0], end: [47, 0], parent: "d5" },
   // the LAST sibling section is boundary-coincident with its parent's tail: it starts exactly
   // where the nested section ended (L50 col 0) and runs to EOF - the selfNesting case
-  { kind: "h2", start: [50, 0], end: [63, 0], name: "Sibling section", parent: "d1" },
-  { kind: "heading", start: [50, 0], end: [51, 0], parent: "d26" },
+  { kind: "h2.section", start: [50, 0], end: [63, 0], name: "Sibling section", parent: "d1" },
+  { kind: "h2", start: [50, 0], end: [51, 0], name: "Sibling section", parent: "d26" },
   { kind: "paragraph", start: [52, 0], end: [53, 0], parent: "d26" },
-  // one capture per level: each deeper heading nests in the one above, all boundary-coincident
+  // each deeper section nests in the one above, all boundary-coincident
   // with the file's end
-  { kind: "h3", start: [54, 0], end: [63, 0], name: "Third level", parent: "d26" },
-  { kind: "heading", start: [54, 0], end: [55, 0], parent: "d29" },
-  { kind: "h4", start: [56, 0], end: [63, 0], name: "Fourth level", parent: "d29" },
-  { kind: "heading", start: [56, 0], end: [57, 0], parent: "d31" },
-  { kind: "h5", start: [58, 0], end: [63, 0], name: "Fifth level", parent: "d31" },
-  { kind: "heading", start: [58, 0], end: [59, 0], parent: "d33" },
-  { kind: "h6", start: [60, 0], end: [63, 0], name: "Sixth level", parent: "d33" },
-  { kind: "heading", start: [60, 0], end: [61, 0], parent: "d35" },
+  { kind: "h3.section", start: [54, 0], end: [63, 0], name: "Third level", parent: "d26" },
+  { kind: "h3", start: [54, 0], end: [55, 0], name: "Third level", parent: "d29" },
+  { kind: "h4.section", start: [56, 0], end: [63, 0], name: "Fourth level", parent: "d29" },
+  { kind: "h4", start: [56, 0], end: [57, 0], name: "Fourth level", parent: "d31" },
+  { kind: "h5.section", start: [58, 0], end: [63, 0], name: "Fifth level", parent: "d31" },
+  { kind: "h5", start: [58, 0], end: [59, 0], name: "Fifth level", parent: "d33" },
+  { kind: "h6.section", start: [60, 0], end: [63, 0], name: "Sixth level", parent: "d33" },
+  { kind: "h6", start: [60, 0], end: [61, 0], name: "Sixth level", parent: "d35" },
   { kind: "paragraph", start: [62, 0], end: [63, 0], parent: "d35" },
 ];
 
@@ -112,17 +112,22 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     }
   });
 
-  test("markdown emits the six heading levels, heading, code, paragraph, list, list_item and table", () => {
+  test("markdown emits the six section and heading levels, code, paragraph, list, list_item and table", () => {
     expect([...new Set(captured.map((e) => e.kind))].sort()).toEqual([
       "code",
       "code_block",
       "h1",
+      "h1.section",
       "h2",
+      "h2.section",
       "h3",
+      "h3.section",
       "h4",
+      "h4.section",
       "h5",
+      "h5.section",
       "h6",
-      "heading",
+      "h6.section",
       "list",
       "list_item",
       "paragraph",
@@ -136,9 +141,9 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     expect(tables[0]!.text.trim()).toBe("| col a | col b |\n| ----- | ----- |\n| 1     | 2     |");
   });
 
-  test("a section's name is its heading text with the marker stripped", () => {
+  test("a section's name is its heading text with the marker stripped, like its heading's", () => {
     for (const e of captured) {
-      if (!/^h[1-6]$/.test(e.kind)) continue;
+      if (!/^h[1-6](\.section)?$/.test(e.kind)) continue;
       expect(e.name?.startsWith("#")).toBe(false);
       expect(e.name?.length ?? 0).toBeGreaterThan(0);
     }

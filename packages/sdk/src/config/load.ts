@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import { RULE_TARGETS } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { CAPTURE_ADDRESS } from "../core/grammars/capture-address.ts";
 import {} from "../core/grammars/grammars.ts";
 import {} from "../core/grammars/query.ts";
 import { closestName } from "../core/lint.ts";
@@ -38,7 +39,7 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 // grammar-autonomous vocabulary (markdown's markdown:h2). Validated at lint
 // startup against the merged registry, never at config load.
 const CAPTURE_ADDRESS_SCHEMA = Type.String({
-  pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+  pattern: CAPTURE_ADDRESS.source,
   description:
     "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
 });

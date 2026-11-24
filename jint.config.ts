@@ -84,7 +84,7 @@ const is_headword_consistent: RuleSchema = {
 
 const has_extra_description: CustomRule = {
   name: "has_extra_description",
-  target: ["markdown:h3", "markdown:h4"],
+  target: ["markdown:h3.section", "markdown:h4.section"],
   include: ["docs/reference/cli.md"],
   state: (entry) => ({
     heading: entry.name,

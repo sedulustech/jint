@@ -33,7 +33,7 @@ const is_meta_title_vague: CustomRule = {
     metaTitle:
       file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value +
       " - jint docs",
-    pageContent: file.getElement("markdown:h1").source,
+    pageContent: file.getElement("markdown:h1.section").source,
   }),
 };
 

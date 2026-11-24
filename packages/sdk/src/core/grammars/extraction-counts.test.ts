@@ -75,7 +75,8 @@ const PINNED: Readonly<
     definitions: {
       h1: 1,
       h2: 1,
-      heading: 2,
+      "h1.section": 1,
+      "h2.section": 1,
       paragraph: 4,
       code_block: 1,
       code: 1,

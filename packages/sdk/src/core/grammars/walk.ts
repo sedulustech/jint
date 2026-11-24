@@ -58,6 +58,7 @@ import {
   scmEmittedNames,
   scmFirstNameCaptures,
   scmSelfNestingCaptures,
+  scmSharesSpanCaptures,
   type SuppressionOptions,
   type SuppressionShape,
   scmSelfNesting,
@@ -231,7 +232,12 @@ function resolveSuppression(scm: string): SuppressionOptions {
   const selfNestingCaptures = new Set<string>(scmSelfNestingCaptures(scm));
   if (scmSelfNesting(scm))
     for (const capture of scmEmittedNames(scm)) selfNestingCaptures.add(capture);
-  return { shapes, selfNestingCaptures, firstNameCaptures: scmFirstNameCaptures(scm) };
+  return {
+    shapes,
+    selfNestingCaptures,
+    sharesSpanCaptures: scmSharesSpanCaptures(scm),
+    firstNameCaptures: scmFirstNameCaptures(scm),
+  };
 }
 
 function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
@@ -291,6 +297,11 @@ function enclosuresOf(
 ): Enclosures {
   const byStart = (a: Candidate, b: Candidate) => a.node.startIndex - b.node.startIndex;
   const sweep = [...definitions].sort(byStart);
+  const order = new Map(sweep.map((definition, at) => [definition, at]));
+  // of two definitions with one span, the first encloses the second
+  const encloses = (outer: Candidate, inner: Candidate): boolean =>
+    containsSpan(outer, inner) &&
+    !(containsSpan(inner, outer) && order.get(outer)! > (order.get(inner) ?? Infinity));
   const enclosures = new Map<Candidate, readonly Candidate[]>();
   const open: Candidate[] = [];
   let next = 0;
@@ -303,7 +314,7 @@ function enclosuresOf(
     open.length = live;
     enclosures.set(
       query,
-      open.filter((definition) => containsSpan(definition, query)),
+      open.filter((definition) => encloses(definition, query)),
     );
   }
   return enclosures;

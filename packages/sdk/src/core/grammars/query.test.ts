@@ -65,9 +65,20 @@ describe("resolveCandidates", () => {
     const kept = resolveCandidates([candidate(0, "type", 0, 20), candidate(1, "type", 5, 20)], {
       shapes: new Map(),
       selfNestingCaptures: new Set(["type"]),
+      sharesSpanCaptures: new Set(),
       firstNameCaptures: new Set(),
     });
     expect(kept).toHaveLength(2);
+  });
+
+  test("a capture that shares its span keeps the element inside it, after itself", () => {
+    const kept = resolveCandidates([candidate(0, "type", 0, 9), candidate(1, "class", 0, 9)], {
+      shapes: new Map(),
+      selfNestingCaptures: new Set(),
+      sharesSpanCaptures: new Set(["class"]),
+      firstNameCaptures: new Set(),
+    });
+    expect(kept.map(({ capture }) => capture)).toEqual(["class", "type"]);
   });
 
   test("absorb tolerance: a trailing ';' wrapper still collapses", () => {
@@ -75,6 +86,7 @@ describe("resolveCandidates", () => {
     const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)], {
       shapes: new Map([["type", { absorbTail: 2, leaf: false }]]),
       selfNestingCaptures: new Set(),
+      sharesSpanCaptures: new Set(),
       firstNameCaptures: new Set(),
     });
     expect(kept).toHaveLength(1);
