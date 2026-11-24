@@ -457,7 +457,10 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("all units fail: exit 3 with the failures named on stderr", async () => {
-    const proc = await runCli(["run", "str", "-"], { env: NO_SERVICE, stdin: "x" });
+    const proc = await runCli(["run", "str", "-", "--rule", "will_comment_drift"], {
+      env: NO_SERVICE,
+      stdin: "x",
+    });
     expect(proc.code).toBe(3); // every unit failed -> the run failed (never exit 0)
     expect(proc.stderr).toMatch(/error PROVIDER_\w+ str:stdin:/);
     expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
@@ -521,7 +524,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   }, 30000);
 
   test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
-    const proc = await runCli(["run", "str", "-", "--json"], {
+    const proc = await runCli(["run", "str", "-", "--rule", "will_comment_drift", "--json"], {
       env: NO_SERVICE,
       stdin: { file: "tests/fixtures/sample.diff" },
     });

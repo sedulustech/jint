@@ -1,4 +1,4 @@
-import { domains } from "@jint/rules";
+import { domains, incompleteRules } from "@jint/rules";
 import { compileRule, registerCustomRuleLoader, type Rule } from "@jint/sdk";
 
 /**
@@ -26,5 +26,5 @@ export const catalog: Record<string, Rule> = (() => {
 
 /** Registers the virtual modules: one jint:rules/<domain> per bundled domain. */
 export function provideVirtualModules(): void {
-  registerCustomRuleLoader({ domains });
+  registerCustomRuleLoader({ domains, incompleteRules });
 }

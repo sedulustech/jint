@@ -53,20 +53,21 @@ export type Handle = (answer: ClassifiedAnswer) => HandleOutcome | null;
  * firing side, so a value exactly at a threshold stays silent. A silent_band hit suppresses before
  * any threshold is consulted. The contract evaluator owns these semantics.
  */
-export function compileNoulHandler(data: NoulHandlerData): Handle {
-  // the contract evaluator owns the semantics (operators, band, strict comparisons)
-  return (answer) => handleTier(answer.value, data);
+export function compileNoulHandler(noulHandler: NoulHandlerData): Handle {
+  return function handleNoulAnswer(classifiedAnswer: ClassifiedAnswer) {
+    return handleTier(classifiedAnswer.value, noulHandler);
+  };
 }
 
-export function compileScoreHandler(data: ScoreHandlerData): Handle {
+export function compileScoreHandler(scoreHandler: ScoreHandlerData): Handle {
   return (answer) => {
-    const index = Math.round(answer.value);
-    if (!Number.isInteger(index) || index < 0 || index >= data.map.length) {
+    const scoreIndex = Math.round(answer.value);
+    if (!Number.isInteger(scoreIndex) || scoreIndex < 0 || scoreIndex >= scoreHandler.map.length) {
       throw new InternalError(
-        `score ${answer.value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
+        `score ${answer.value} is outside the criteria scale 0..${scoreHandler.map.length - 1} - the classifier returned an out-of-bounds score`,
       );
     }
-    return resolveScoreTier(answer.value, answer.probabilities, data);
+    return resolveScoreTier(answer.value, answer.probabilities, scoreHandler);
   };
 }
 
@@ -142,7 +143,7 @@ const CHOICE_HANDLER_SCHEMA = Type.Object(
   },
 );
 
-const CONDITION_SCHEMA = Type.Union(
+export const CONDITION_SCHEMA = Type.Union(
   [
     Type.Object(
       {
@@ -173,7 +174,7 @@ const CONDITION_SCHEMA = Type.Union(
   },
 );
 
-const NOUL_HANDLER_SCHEMA = Type.Object(
+export const NOUL_HANDLER_SCHEMA = Type.Object(
   {
     warn: Type.Optional(CONDITION_SCHEMA),
     error: Type.Optional(CONDITION_SCHEMA),

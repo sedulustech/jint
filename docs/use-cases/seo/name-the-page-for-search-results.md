@@ -1,33 +1,40 @@
 ---
 title: "Name the page for search results"
-description: "A rule for built HTML pages: it flags a page whose title tag is a bare label, so a searcher cannot tell from the results list what the page is."
+description: "A rule that compares the title a search result shows with the page's text, and flags a title that is vague or names another subject."
 sidebar:
   label: SEO
 ---
 
 # Name the page for search results
 
-[`has_title_without_context`](../../../packages/rules/seo/src/index.ts) flags a built page whose title tag is a bare label, such as one noun, so a searcher reading a list of results cannot tell what the page is about.
+[`is_meta_title_vague`](../../../packages/rules/seo/src/index.ts) flags a page whose search title is vague or names another subject than the page's text.
 
 ```ts
-import type { RuleSchema } from "jint:sdk";
+import { defineConfig, type CustomRule } from "jint:sdk";
 
-const has_title_without_context: RuleSchema = {
-  name: "has_title_without_context",
+const is_meta_title_vague: CustomRule = {
+  name: "is_meta_title_vague",
   instructions:
-    "A title has context when a searcher who sees only the page's title tag in a list of search results can tell what the page is about and what to expect from it. Does this page's title tag lack context: it is a bare label or fragment that tells a searcher nothing about the subject or what the page does?",
+    "metaTitle is the title a search result shows for the page in pageContent; the part after the last separator is the site's name. Does metaTitle fail to describe pageContent?",
   criteria: {
-    true: "The title tag is a bare label: a noun, a verb with no object, or an adjective alone, naming an area or a feature, with no object the verb acts on and no question. The site's name beside a bare label does not give it context, and neither does the rest of the page.",
+    true: 'metaTitle is vague or inaccurate. Vague: a label such as "Home", "Profile" or "Overview" that would fit many pages and does not say which subject or task of pageContent this page covers. Inaccurate: it names a subject that is not the main subject of pageContent.',
     false:
-      "The title tag is an action on a named object, a question, or a phrase that names its subject in words a searcher outside the product would use: it says what the page is about or what the reader can do.",
+      "metaTitle is descriptive, concise and accurate. It names the main subject of pageContent, or the task a reader completes with it, in specific words, so a searcher can tell this page from the site's other pages. A short title is fine when its words are specific.",
   },
-  target: "files",
-  include: ["**/*.html"],
   handle: {
-    warn: {
-      greater_than: 0.5,
-      message: "Rewrite the title to name the subject or what the reader can do.",
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.7,
+      message: "Rewrite the title to name the page's main subject, or the task a reader completes.",
     },
   },
+  target: "markdown:frontmatter",
+  state: (page, { file }) => {
+    const title = page.source.match(/^title: *(.+)$/m)?.[1];
+    if (title === undefined) throw new Error("the front matter has no title");
+    return { metaTitle: title, pageContent: file.source.slice(page.span.endByte) };
+  },
 };
+
+export default defineConfig({ rules: { include: ["docs/**/*.md"], use: [is_meta_title_vague] } });
 ```
