@@ -1,41 +1,41 @@
 /**
- * SEO rules: how a page presents itself in a list of search results. A page's title and its
- * description are what a searcher sees, so these rules judge what a count cannot: whether the copy
- * says anything. Lengths, uniqueness and heading levels are a test's job and are not here. Open
- * Graph is a different domain (the card a shared link shows); these rules are about search.
- *
- * Each rule reads one built HTML page whole: the head and the body carry the title, the description
- * and the headings, so nothing is extracted from it. A high reading is bad.
+ * SEO rules: how a page presents itself in a list of search results. A rule here names the parts of
+ * the state it reads and leaves the state to the config: each project captures its pages its own
+ * way. A high reading is bad.
  */
 
 import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
 
 /**
- * Measured on the 25 built pages of this site's docs, labeled by hand: the pages with a clear title
- * read 0.00 to 0.05 (install, local, the CLI and config references, the use cases), the bare ones
- * 0.84 to 1.00 (targets, captures, grammars, directives, calibration, stale comments). Two planted
- * controls, a real page with its title tag cut to one word, read 0.89 and 0.88 against 0.00 for the
- * originals. Between the two sit titles that are arguable (0.16 to 0.73). The rule flags 9 of the
- * 25. One site and one page layout: not proven elsewhere.
+ * The state holds two parts. `metaTitle` is the title a search result shows for the page, with the
+ * site's name. `pageContent` is the page's main text, without its front matter, navigation or
+ * footer. The criteria follow https://developers.google.com/search/docs/appearance/title-link.
+ *
+ * Measured on 20 labeled titles of this site's docs, each with its page: the 8 real titles read
+ * 0.00 to 0.08, the same 8 cut to one word 0.30 to 0.94, and 4 real pages under another page's
+ * title 0.71 to 1.00. The warn threshold misses 4 of the 8 cut titles. One site, markdown pages
+ * only: not proven elsewhere.
  */
-export const has_title_without_context: NoulRuleSchema = {
-  name: "has_title_without_context",
+export const is_meta_title_vague: Omit<NoulRuleSchema, "target"> = {
+  name: "is_meta_title_vague",
   instructions:
-    "A title has context when a searcher who sees only the page's title tag in a list of search results can tell what the page is about and what to expect from it. Does this page's title tag lack context: it is a bare label or fragment that tells a searcher nothing about the subject or what the page does?",
+    "metaTitle is the title a search result shows for the page in pageContent; the part after the last separator is the site's name. Does metaTitle fail to describe pageContent?",
   criteria: {
-    true: "The title tag is a bare label: a noun, a verb with no object, or an adjective alone, naming an area or a feature, with no object the verb acts on and no question. The site's name beside a bare label does not give it context, and neither does the rest of the page.",
+    true: 'metaTitle is vague or inaccurate. Vague: a label such as "Home", "Profile" or "Overview" that would fit many pages and does not say which subject or task of pageContent this page covers. Inaccurate: it names a subject that is not the main subject of pageContent.',
     false:
-      "The title tag is an action on a named object, a question, or a phrase that names its subject in words a searcher outside the product would use: it says what the page is about or what the reader can do.",
+      "metaTitle is descriptive, concise and accurate. It names the main subject of pageContent, or the task a reader completes with it, in specific words, so a searcher can tell this page from the site's other pages. A short title is fine when its words are specific.",
   },
-  target: "files",
-  include: ["**/*.html"],
   handle: {
-    warn: {
-      greater_than: 0.5,
-      message: "Rewrite the title to name the subject or what the reader can do.",
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.7,
+      message: "Rewrite the title to name the page's main subject, or the task a reader completes.",
     },
   },
 };
 
-/** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = [has_title_without_context];
+/** Rules of this domain that run as they are. */
+export const rules: readonly RuleSchema[] = [];
+
+/** Rules of this domain that a config completes with a target and a state. */
+export const incompleteRules: readonly Omit<NoulRuleSchema, "target">[] = [is_meta_title_vague];

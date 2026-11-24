@@ -6,7 +6,11 @@ let sdkRegistered = false;
 const registeredDomains = new Map<string, string[]>();
 
 export function registerCustomRuleLoader(
-  virtuals: { domains?: Readonly<Record<string, readonly unknown[]>> } = {},
+  virtuals: {
+    domains?: Readonly<Record<string, readonly unknown[]>>;
+    /** Importable beside a domain's rules, and not among them: a config completes each. */
+    incompleteRules?: Readonly<Record<string, readonly { readonly name: string }[]>>;
+  } = {},
 ): void {
   const fresh = Object.entries(virtuals.domains ?? {}).filter(
     ([key]) => !registeredDomains.has(key),
@@ -32,6 +36,9 @@ export function registerCustomRuleLoader(
       for (const [key, specs] of fresh) {
         build.module("jint:rules/" + key, () => ({
           exports: {
+            ...Object.fromEntries(
+              (virtuals.incompleteRules?.[key] ?? []).map((rule) => [rule.name, rule]),
+            ),
             ...Object.fromEntries(specs.map((spec) => [(spec as { name: string }).name, spec])),
             rules: specs,
           },
@@ -57,6 +64,7 @@ export function registeredRuleDomains(): Record<string, string[]> {
 export function noRulesAdvice(): string {
   const domains = registeredRuleDomains();
   const listing = Object.entries(domains)
+    .filter(([, names]) => names.length > 0)
     .map(([key, names]) => `  jint:rules/${key}: ${names.join(", ")}`)
     .join("\n");
   const first = Object.entries(domains)[0];

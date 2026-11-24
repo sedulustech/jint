@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { domains } from "@jint/rules";
+import { domains, incompleteRules } from "@jint/rules";
 import { loadTsConfig } from "../../../config/load.ts";
 import { registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./schema.ts";
@@ -38,7 +38,7 @@ const INLINE_RULE_CONFIG = [
 
 describe("loadTsConfig (the TS config tier)", () => {
   // the provider is the entry point's decision; registered before any jint:rules import runs
-  registerCustomRuleLoader({ domains });
+  registerCustomRuleLoader({ domains, incompleteRules });
 
   test("a TS config with an INLINE callback rule loads end to end: declarative compiles, callback validates", async () => {
     const path = write("inline-rule.config.ts", INLINE_RULE_CONFIG);
@@ -51,6 +51,19 @@ describe("loadTsConfig (the TS config tier)", () => {
     expect(config.customRules).toHaveLength(1);
     expect(config.customRules![0]!.name).toBe("will_test_fire");
     expect(typeof config.customRules![0]!.classify).toBe("function");
+  });
+
+  test("a rule its domain leaves incomplete loads once a config gives it a target and a state", async () => {
+    const rule = (completed: string) =>
+      'import { is_meta_title_vague } from "jint:rules/seo";\n' +
+      `export default { rules: { use: [{ ...is_meta_title_vague, ${completed} }] } };\n`;
+    const complete = 'target: "markdown:frontmatter", state: () => ({ metaTitle: "a" })';
+    const config = await loadTsConfig(write("completed.config.ts", rule(complete)), {
+      catalog: undefined as never,
+    });
+    expect(config.customRules!.map((r) => r.name)).toEqual(["is_meta_title_vague"]);
+    const alone = loadTsConfig(write("incomplete.config.ts", rule("")), { catalog: {} });
+    await expect(alone).rejects.toThrow(/target/);
   });
 
   test("the gate rejects bare specifiers BEFORE import runs", async () => {
@@ -265,6 +278,7 @@ describe("validateCustomRule (load-time, fatal)", () => {
       { warn: { greater_than: 1.5 } }, // warn_at outside (0, 1)
       { warn: { greater_than: 0.5 }, error: { greater_than: 0.0 } }, // error_at outside (0, 1)
       { warn: { greater_than: 0.9 }, error: { greater_than: 0.7 } }, // unordered on the defect pole
+      { warn: { greater_than: 0.3, mesage: "m" } }, // unknown key in a condition
       { warn: { greater_than: 0.3 }, silent_band: [0.6, 0.4] }, // band unordered
       { warn: { greater_than: 0.3 }, silent_band: [0, 1] }, // band covers the scale
       { warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }, // band contains warn_at

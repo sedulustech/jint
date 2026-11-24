@@ -83,7 +83,14 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
 
 describe("cli: piped stdin str unit", async () => {
   test("snippet | jint --json: parses, classifications present", async () => {
-    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json"]);
+    const r = await runWithStdin(SNIPPET, [
+      "run",
+      "str",
+      "-",
+      "--json",
+      "--rule",
+      "will_comment_drift",
+    ]);
     expect([0, 1]).toContain(r.code); // findings decide; the run itself classified
     const report = JSON.parse(r.stdout);
     expect(report.classifications.length).toBeGreaterThan(0);

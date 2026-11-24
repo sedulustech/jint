@@ -4,7 +4,7 @@ import { rules as errors } from "@jint/rules-errors";
 import { rules as naming } from "@jint/rules-naming";
 import { rules as reactHooks } from "@jint/rules-react/hooks";
 import { rules as security } from "@jint/rules-security";
-import { rules as seo } from "@jint/rules-seo";
+import { incompleteRules as seoIncomplete, rules as seo } from "@jint/rules-seo";
 import { rules as slop } from "@jint/rules-slop";
 import { rules as x } from "@jint/rules-x";
 import type { RuleSchema } from "@jint/contract";
@@ -28,5 +28,12 @@ export const domains: Readonly<Record<string, readonly RuleSchema[]>> = {
   "react/hooks": reactHooks,
 };
 
-/** Every rule of every domain, in domain order. */
+/**
+ * Per domain, the rules a config completes with a target and a state: importable, never run as they
+ * are.
+ */
+export const incompleteRules: Readonly<Record<string, readonly { readonly name: string }[]>> = {
+  seo: seoIncomplete,
+};
+
 export const allRules: readonly RuleSchema[] = Object.values(domains).flat();
