@@ -3,147 +3,25 @@
  * rule files get completions and checking in the editor. Rule projects reference it with a
  * triple-slash path into the installed package's sources.
  *
- * MIRROR GUARD: this declaration must stay type-identical to the runtime schema — a typecheck-time
- * mirror test enforces that. Edit them together.
+ * The types are the runtime's own, through inline imports.
  */
 
 declare module "jint:sdk" {
-  export interface CustomElement {
-    /**
-     * The element's identity: the uuidv4 the walk minted, the same in the classification and the
-     * finding.
-     */
-    readonly id: string;
-    /** Positional name within its file ("d0", "c2", "i0"): display only, never an identity. */
-    readonly label: string;
-    readonly path: string;
-    readonly grammar: string;
-    /** The capture name: a shared capture or the grammar-declared autonomous one. */
-    readonly capture: import("./core/types.ts").ElementCapture;
-    readonly source: string;
-    readonly span: {
-      readonly start: { readonly line: number; readonly column: number };
-      readonly end: { readonly line: number; readonly column: number };
-      readonly startByte: number;
-      readonly endByte: number;
-    };
-    /**
-     * A definition's source text up to its body, else its first line: what names it and what it
-     * takes.
-     */
-    readonly signature?: string;
-    /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
-    readonly attachedComment?: readonly string[];
-    /** Non-empty comments inside this element's body (target grammar: "comments"). */
-    readonly internalCommentCount?: number;
-    /** Docstrings this definition owns (the pair split): documentation the frame carries. */
-    readonly docstringCount?: number;
-    /**
-     * For a comment element a definition owns (a docstring): who it documents. Its presence is what
-     * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
-     */
-    readonly docstringOf?: import("@jint/contract").DocstringOwner;
-    readonly parent: CustomElement | null;
-  }
-
-  /** The rule's environment, assembled after target resolution. */
-  export interface RuleContext {
-    readonly targets: readonly CustomElement[];
-  }
-
-  /** The file an element sits in, as the walk saw it: its text and every element in it. */
-  export interface CustomFile {
-    readonly path: string;
-    readonly source: string;
-    readonly definitions: readonly CustomElement[];
-    readonly comments: readonly CustomElement[];
-    readonly imports: readonly CustomElement[];
-  }
-
-  /** Classify's environment: the rule's context plus the file of the element being judged. */
-  export interface ClassifyContext extends RuleContext {
-    readonly file: CustomFile;
-  }
-
-  /** One compiled judgment: question, criteria, and the freely composed state the provider judges. */
-  export interface StateSchema {
-    readonly instructions: string;
-    readonly criteria: { readonly true: string; readonly false: string };
-    readonly state: Record<string, unknown>;
-  }
-
-  export type CustomHandleData = import("@jint/contract").NoulHandlerData;
-
-  /** The provider answer type for the rule's kind (noul-only in v1). */
-  export type NoulResult = { readonly type: "noul"; readonly noul: number };
-  export type ScoreResult = { readonly type: "score"; readonly score: number };
-  export type RuleResult = NoulResult | ScoreResult;
-
-  /** One policy decision, aligned by index with ctx.targets; null severity = silent. */
-  export interface CustomDecision {
-    readonly severity: "error" | "warn" | null;
-    /**
-     * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity
-     * says whether, message says how. Rendered beneath the finding line.
-     */
-    readonly message?: string;
-  }
-
-  /** A custom rule: request (target), per-element compiler (classify), and exactly one policy. */
-  export interface CustomRule {
-    readonly name: string;
-    readonly kind?: "noul";
-    readonly target:
-      | "functions"
-      | "classes"
-      | "methods"
-      | "types"
-      | "bindings"
-      | "definitions"
-      | "comments"
-      | "loose-comments"
-      | "imports"
-      | readonly string[]
-      | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-    readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
-    /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
-    readonly include?: readonly string[];
-    /** Per-rule scoping: glob list; ALWAYS wins over include. */
-    readonly exclude?: readonly string[];
-    /**
-     * The rule's policy — REQUIRED, exactly one per rule, in one of two encodings: data is the
-     * declarative form (JSON-expressible noul handler); a function is the TS-only escape hatch,
-     * called ONCE after all classifications (results[i] <-> ctx.targets[i]) and returns one
-     * decision per result, aligned by index. The field either is data or is a function, never both;
-     * a classification-only rule returns [] (or all-null severities) from the function form.
-     */
-    readonly handle:
-      | CustomHandleData
-      | ((results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]);
-  }
-
-  /**
-   * A TS config: the same keys a top-level config takes, minus customRules. Entries in rules are
-   * declarative specs (jint:rules/<domain> exports and their spread-and-overrides) or inline
-   * callback CustomRules. A repeated name is an error unless the later entry sets override: true.
-   */
-  export interface TsConfig {
-    readonly $schema?: string;
-    readonly input?: string;
-    /**
-     * The rules, and the default scope every rule follows (a rule's own include/exclude overrides
-     * it).
-     */
-    readonly rules?: {
-      readonly include?: readonly string[];
-      readonly exclude?: readonly string[];
-      readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
-    };
-    readonly concurrency?: number;
-    readonly timeout?: number;
-    readonly maxInputTokens?: number;
-    readonly charsPerToken?: number;
-  }
+  export type CustomElement = import("./core/rules/custom/schema.ts").CustomElement;
+  export type RuleContext = import("./core/rules/custom/schema.ts").RuleContext;
+  export type CustomFile = import("./core/rules/custom/schema.ts").CustomFile;
+  export type ClassifyContext = import("./core/rules/custom/schema.ts").ClassifyContext;
+  export type StateSchema = import("./core/rules/custom/schema.ts").StateSchema;
+  export type CustomHandleData = import("./core/rules/custom/schema.ts").CustomHandleData;
+  export type CustomDecision = import("./core/rules/custom/schema.ts").CustomDecision;
+  export type ComposeState = import("./core/rules/custom/schema.ts").ComposeState;
+  export type ComposedQuestion = import("./core/rules/custom/schema.ts").ComposedQuestion;
+  export type ClassifiedQuestion = import("./core/rules/custom/schema.ts").ClassifiedQuestion;
+  export type CustomRule = import("./core/rules/custom/schema.ts").CustomRule;
+  export type TsConfig = import("./core/rules/custom/schema.ts").TsConfig;
+  export type NoulResult = import("./core/types.ts").NoulResult;
+  export type ScoreResult = import("./core/types.ts").ScoreResult;
+  export type RuleResult = import("./core/types.ts").RuleResult;
 
   /** A declarative rule spec - what a jint:rules/<domain> export is, and what a config entry takes. */
   export type RuleSchema = import("@jint/contract").RuleSchema;

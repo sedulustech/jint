@@ -56,7 +56,7 @@ function setup(name: string, rules: unknown[]): string {
   return dir;
 }
 
-const noulRule = (name: string, target: string) => ({
+const noulRule = (name: string, target: string | string[]) => ({
   name,
   target,
   instructions: "Judge the unit.",
@@ -104,7 +104,9 @@ describe("byog: the user-grammar seam end-to-end", () => {
   });
 
   test("the embedded mapping is the contrast: without the shadow dir the same file yields its headings", async () => {
-    const dir = setup("embedded", [noulRule("probe_embedded_section", "markdown:section")]);
+    const dir = setup("embedded", [
+      noulRule("probe_embedded_section", ["markdown:h1", "markdown:h2"]),
+    ]);
     const empty = scratchDir("jint-byog-empty");
     try {
       const r = await runCli(["run", "--config", "jint.config.json", "--json"], {

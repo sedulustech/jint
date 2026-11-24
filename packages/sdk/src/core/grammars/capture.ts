@@ -4,9 +4,11 @@ import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
+import { isCustomRule, type CustomRule } from "../rules/custom/schema.ts";
 import { ruleInScope } from "../scope.ts";
 import { SetupError, type Rule, type Unit } from "../types.ts";
 import { POOL_FAILED_NOTE, walkEach } from "../walk-pool.ts";
+import { CoverageTally } from "./coverage.ts";
 import {
   grammar,
   knownLanguages,
@@ -19,7 +21,6 @@ import {
 } from "./grammars.ts";
 import { projectElement, type InventoryElement } from "./walk.ts";
 import type { ResolvedConfig } from "../../config/load.ts";
-import type { CustomRule } from "../rules/custom/schema.ts";
 import type { Element } from "@jint/contract";
 
 /**
@@ -52,10 +53,11 @@ async function loadQueryFile(queryPath: string): Promise<string> {
   }
   return Bun.file(queryPath)
     .text()
-    .catch(() => {
+    .catch((cause: unknown) => {
       throw new SetupError(
         "CONFIG_INVALID",
         `query file "${queryPath}" is unreadable - capture() extracts with an .scm file or no override`,
+        { cause },
       );
     });
 }
@@ -146,7 +148,12 @@ function capturedOf(
   matches: boolean,
 ): CapturedElement {
   const text = element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
-  const captured = { ...projectElement(element), input: path, grammar: language, text };
+  const captured = {
+    ...projectElement(element, element.parent),
+    input: path,
+    grammar: language,
+    text,
+  };
   return matches ? { ...captured, matches: true } : captured;
 }
 
@@ -237,6 +244,7 @@ async function* extractEach(
   const custom = preview !== undefined && isCustomRule(preview.rule) ? preview.rule : undefined;
   const jsonRule = preview !== undefined && !isCustomRule(preview.rule) ? preview : undefined;
   const held: HeldFile[] = [];
+  const coverage = new CoverageTally();
   let poolNoted = false;
   const walked = walkEach(
     claimed(),
@@ -255,6 +263,7 @@ async function* extractEach(
     if (file.failed !== null && file.failedCause !== undefined) throw file.failedCause;
     const path = unit.state.path;
     const language = languages.get(unit)!;
+    if (file.coverage !== undefined) coverage.add(path, file.coverage);
     const projected = file.inventory.map((element) =>
       capturedOf(
         element,
@@ -268,6 +277,8 @@ async function* extractEach(
     else if (projected.length > 0) yield projected;
   }
   if (custom !== undefined) yield* markedByCustomRule(custom, held);
+  const own = queries === undefined ? undefined : { label: queryPath!, scm: queries };
+  for (const note of coverage.notes(registry, own)) input.onNote?.(note);
 }
 
 export type ConfiguredCapture = (
@@ -297,10 +308,6 @@ export interface CaptureForOptions {
   /** The threads that parse files, as in a run (default: the pool's own choice). */
   readonly walkWorkers?: number;
 }
-
-/** A custom (callback) rule is recognizable by its classify function; the JSON tier has none. */
-const isCustomRule = (rule: Rule | CustomRule): rule is CustomRule =>
-  typeof (rule as CustomRule).classify === "function";
 
 /** The capture as the walk makes it: one array of elements per file, in file order. */
 export type ConfiguredCaptureStream = (

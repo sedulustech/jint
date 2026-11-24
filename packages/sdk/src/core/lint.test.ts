@@ -790,14 +790,14 @@ describe("lint", () => {
     expect(noulFindings[0]!.finding.note).toBe("File-scope smell - see the rubric docs.");
   });
 
-  test("the capture address: target 'section' judges a README section; shared targets do not", async () => {
+  test("the capture address: target 'h1' judges a README section; shared targets do not", async () => {
     mkdirSync("tmp", { recursive: true });
     const file = "tmp/lint-section-test.md";
     await Bun.write(file, "# Head\n\nsome prose under the heading\n");
     try {
       const sectionRule = mkRule("noul", {
         name: "probe_section",
-        target: "markdown:section" as never, // the qualified capture address: grammar-scoped
+        target: "markdown:h1" as never, // the qualified capture address: grammar-scoped
         handle: { warn: { greater_than: 0.9 } },
       });
       const report = await collectReport(
@@ -806,9 +806,9 @@ describe("lint", () => {
           classifier: loggingClassifier({ probe_section: 0.95 }, { calls: [] }),
         }),
       );
-      // the section element was selected, judged, and carries the section kind
+      // the section element was selected, judged, and carries its level as its kind
       expect(report.classifications).toHaveLength(1);
-      expect(report.classifications[0]!.element?.kind).toBe("section");
+      expect(report.classifications[0]!.element?.kind).toBe("h1");
       expect(report.findings).toHaveLength(1);
       expect(report.findings[0]!.rule).toBe("probe_section");
       // the shared captures stay addressable when the grammar emits them (typescript emits @comment)
@@ -905,11 +905,19 @@ describe("lint", () => {
     // the derivation is element captures only: markdown's @name never becomes addressable
     // sorted: the open namespace has no registry order to preserve
     expect(emittedCaptures(EMBEDDED, "markdown")).toEqual([
+      "code",
+      "code_block",
       "frontmatter",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "heading",
       "list",
       "list_item",
       "paragraph",
-      "section",
       "table",
     ]);
   });
@@ -1271,14 +1279,14 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
 
-  test("a TS custom rule targets the qualified capture lane: markdown:section measures sections", async () => {
+  test("a TS custom rule targets the qualified capture lane: markdown:h1 measures h1 sections", async () => {
     mkdirSync("tmp", { recursive: true });
     const file = "tmp/lint-ts-section-test.md";
     await Bun.write(file, "# Head\n\nprose under it\n");
     try {
       const sectionRule = {
         name: "custom_md_section",
-        target: "markdown:section",
+        target: "markdown:h1",
         classify: (self: { source: string }) => ({
           instructions: "i",
           criteria: { true: "t", false: "f" },
@@ -1298,7 +1306,7 @@ describe("lint", () => {
         }),
       );
       expect(report.classifications).toHaveLength(1);
-      expect(report.classifications[0]!.element?.kind).toBe("section");
+      expect(report.classifications[0]!.element?.kind).toBe("h1");
     } finally {
       rmSync(file, { force: true });
     }
@@ -1984,7 +1992,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
   test("an element-scope run scope-checks its selector file like any operand", async () => {
     const proseRule = mkRule("score", {
       name: "probe_md_section",
-      target: "markdown:section",
+      target: "markdown:h1",
       include: ["**/*.md"],
       handle: { map: ["pass", "pass", "error"] },
     });

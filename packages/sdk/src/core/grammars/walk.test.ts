@@ -491,9 +491,9 @@ function after() {}
   test("the element projection keeps the contract union", async () => {
     const inv = await decomposeTS("function f() {}\nconst x = 1;\n// note\nimport a from './a';\n");
     const all = [...inv.definitions, ...inv.comments, ...inv.imports];
-    const kinds = all.map((e) => projectElement(e).kind);
+    const kinds = all.map((e) => projectElement(e, e.parent).kind);
     expect(kinds).toEqual(["function", "binding", "comment", "import"]);
-    expect((projectElement(inv.definitions[0]!) as { name?: string }).name).toBe("f");
+    expect((projectElement(inv.definitions[0]!, undefined) as { name?: string }).name).toBe("f");
   });
 });
 

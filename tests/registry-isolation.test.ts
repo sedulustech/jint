@@ -56,7 +56,10 @@ describe("custom registration is a value per call - the impossible leak", () => 
     expect(shadowed.map((e) => e.span.start.line).sort()).toEqual([3, 7]);
     // the next call, custom dir absent: heading sections with names, paragraphs as paragraphs
     const after = await capture(file);
-    expect(after.filter((e) => e.kind === "section").map((e) => e.name)).toEqual(["Title", "Sub"]);
+    expect(after.filter((e) => /^h[1-6]$/.test(e.kind)).map((e) => e.name)).toEqual([
+      "Title",
+      "Sub",
+    ]);
     expect(after.filter((e) => e.kind === "paragraph")).toHaveLength(2);
   });
 

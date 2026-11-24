@@ -46,7 +46,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
       expect(e.grammar).toBe("markdown");
       expect(e.span.start.line).toBeGreaterThan(0);
     }
-    const sections = elements.filter((e) => e.kind === "section");
+    const sections = elements.filter((e) => /^h[1-6]$/.test(e.kind));
     expect(sections).toHaveLength(2);
   });
 
@@ -57,7 +57,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     // the WIP query inverts the embedded mapping: paragraphs are the section elements
     writeFileSync(wip, '(paragraph) @section (#set! "capture.section.definition" "true")\n');
     const embedded = await capture(file);
-    expect(embedded.some((e) => e.kind === "section" && e.name === "Head")).toBe(true);
+    expect(embedded.some((e) => e.kind === "h1" && e.name === "Head")).toBe(true);
     const overridden = await capture(file, wip);
     expect(overridden.map((e) => e.kind)).toEqual(["section"]);
     // attribution still holds
@@ -189,7 +189,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     await capture(join(dir, "doc.md"), undefined, shadow);
     // embedded .scm again: the section carries its heading name, not the shadow's inversion
     const elements = await capture(join(dir, "doc.md"));
-    expect(elements.some((e) => e.kind === "section" && e.name === "Head")).toBe(true);
+    expect(elements.some((e) => e.kind === "h1" && e.name === "Head")).toBe(true);
   });
 
   test("a mixed-grammar dir yields elements from BOTH grammars, attribution exact", async () => {
@@ -206,7 +206,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     }
     const md = elements.filter((e) => e.grammar === "markdown");
     const ts = elements.filter((e) => e.grammar === "typescript");
-    expect(md.every((e) => e.kind === "section" || e.kind === "paragraph")).toBe(true);
+    expect(md.every((e) => /^(h[1-6]|heading|paragraph)$/.test(e.kind))).toBe(true);
     expect(ts.map((e) => e.kind)).toContain("function");
     expect(ts.every((e) => e.input.endsWith(".ts"))).toBe(true);
   });

@@ -67,10 +67,16 @@ demands action.
   cancelled 2026-10-15 with the verilog removal); the qualified capture address is the only
   grammar-local targeting.
 - **qualified capture address** — the grammar-scoped targeting form `{grammar}:{capture}` (e.g.
-  `markdown:section`, `markdown:paragraph`): the only road to a grammar-autonomous capture. Validated against the
+  `markdown:h2`, `markdown:paragraph`): the only road to a grammar-autonomous capture. Validated against the
   captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
   source, no manifest involvement); an unknown grammar or an unemitted capture is a setup error,
   never a silent no-match. The bare form is schema-rejected.
+- **`h1`–`h6`** — markdown's heading-level captures: a heading plus everything under it, one
+  capture per level (`markdown:h4` is every `####` section). A section holds the deeper levels.
+- **heading** — markdown's heading line alone, marks included (@heading). A section that holds
+  only its heading is one element, the section.
+- **code_block**, **code** — markdown's whole fence, and the text inside it. An indented block is
+  `code` alone.
 - **list** — markdown's whole-list capture (@list, md-only): one element per bullet or ordered
   list, spanning every item, markers kept in its text. Lists nest - a nested list is an element
   of its own (the selfNesting fact) - and a rule judging the list whole sees every sibling
@@ -110,7 +116,7 @@ demands action.
   because the run scopes every address.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   element is). Criteria pins the boundary; editing either is a recalibration event.
-- **inventory** — the elements one file yields.
+- **inventory** — every element in a file.
 - **leaf** — a capture whose element has no child elements: every other capture inside it is hidden, while its whole text is still judged. Set by `capture.<name>.leaf`; true by default for function, method and binding.
 - **classification** — one reading of a rule at one element or input, by the classifier; always produced (a value, or refused), never actionable by itself. The run's own is the **original**; a user or agent who edits the question or code and classifies again files **#1**, **#2**, … under the same run, and none of them changes the run.
 - **node** — a tree-sitter syntax node.
