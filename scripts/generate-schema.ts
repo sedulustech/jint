@@ -224,11 +224,6 @@ export function renderGrammarsTable(): string {
 // --- embedded/SOURCES.md ---------------------------------------------------
 const EMBEDDED_DIR = "packages/sdk/src/core/grammars/embedded/";
 
-/**
- * Where each embedded wasm came from: the upstream repo and release (embedded/sources.json, the one
- * hand-written fact) beside the sha256 of the wasm in the tree (read here, so it cannot drift from
- * the file). Anyone can compare a row with the release asset of the same name.
- */
 export function renderGrammarSources(): string {
   const sources = JSON.parse(
     readFileSync(REPO_ROOT + EMBEDDED_DIR + "sources.json", "utf8"),
@@ -337,7 +332,6 @@ const withDefault = (node: TableNode): string =>
 const tableRow = (field: string, node: TableNode): string =>
   `| \`${field}\` | ${typeWord(node)} | ${withDefault(node).replaceAll("|", "\\|")} |`;
 
-/** The run settings: every top-level key but the schema URL and the rules, from CONFIG_SCHEMA. */
 export function renderRunSettingsTable(): string {
   const props = CONFIG_SCHEMA.properties as unknown as Record<string, TableNode>;
   const rows = Object.entries(props)
@@ -386,10 +380,17 @@ export interface RefEntry {
   readonly example?: string;
 }
 
+/** Values and their meanings, for a section with nothing to show under each value. */
+export interface RefTable {
+  readonly columns: readonly [value: string, meaning: string];
+  readonly rows: readonly (readonly [value: string, meaning: string])[];
+}
+
 export interface RefSection {
   readonly title: string;
   readonly intro?: string;
   readonly entries: readonly RefEntry[];
+  readonly table?: RefTable;
 }
 
 export type RefPages = Record<"config" | "environment" | "cli", readonly RefSection[]>;
@@ -553,15 +554,11 @@ export function cliSections(): RefSection[] {
     {
       title: "Exit codes",
       intro: "Every exit path of the CLI uses one of these codes. Warnings alone never fail a run.",
-      entries: EXIT_CODES.map(
-        ({ code, meaning }): RefEntry => ({
-          id: `exit-${code}`,
-          level: 3,
-          name: String(code),
-          pills: [],
-          body: meaning,
-        }),
-      ),
+      entries: [],
+      table: {
+        columns: ["Code", "Meaning"],
+        rows: EXIT_CODES.map(({ code, meaning }) => [String(code), meaning] as const),
+      },
     },
   ];
 }
@@ -570,9 +567,17 @@ export function referencePages(): RefPages {
   return { config: configSections(), environment: envSections(), cli: cliSections() };
 }
 
-/** The pages as the site's data file: the component draws every badge from it. */
 export function renderReferenceJson(): string {
   return JSON.stringify({ $comment: GENERATION_NOTE, ...referencePages() }, null, 2) + "\n";
+}
+
+function renderReferenceTable({ columns, rows }: RefTable): string[] {
+  return [
+    `| ${columns.join(" | ")} |`,
+    "| --- | --- |",
+    ...rows.map(([value, meaning]) => `| \`${value}\` | ${meaning.replaceAll("|", "\\|")} |`),
+    "",
+  ];
 }
 
 /**
@@ -587,6 +592,7 @@ export function renderReferenceMarkdown(sections: readonly RefSection[]): string
       `## ${section.title}`,
       "",
       ...(section.intro === undefined ? [] : [section.intro, ""]),
+      ...(section.table === undefined ? [] : renderReferenceTable(section.table)),
       ...section.entries.flatMap((entry) => [
         `${"#".repeat(entry.level)} \`${entry.name}\``,
         "",
@@ -599,7 +605,6 @@ export function renderReferenceMarkdown(sections: readonly RefSection[]): string
     .join("\n");
 }
 
-/** The config file with every key, each with its description as a comment above it. */
 export function renderConfigExample(): string {
   const keys = renderConfigKeys(CONFIG_SCHEMA.properties as Record<string, ConfigNode>, "  ");
   return [
