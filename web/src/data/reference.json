@@ -281,6 +281,247 @@
           "body": "A [low, high] range of values that raises no finding."
         }
       ]
+    },
+    {
+      "title": "Rule function fields",
+      "intro": "Functions, so they work only in `jint.config.ts`. A JSON config cannot compose a state yet: one with a `state` or `classify` field is an error.",
+      "entries": [
+        {
+          "id": "function-state",
+          "level": 3,
+          "name": "state",
+          "pills": ["(self, ctx) => object"],
+          "body": "Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only."
+        },
+        {
+          "id": "function-classify",
+          "level": 3,
+          "name": "classify",
+          "pills": ["(self, ctx) => { instructions, criteria, state }"],
+          "body": "Composes the question too, when it changes from one element to the next. A rule has state or classify, never both."
+        },
+        {
+          "id": "function-target",
+          "level": 3,
+          "name": "target",
+          "pills": ["(elements) => elements"],
+          "body": "Chooses the elements to judge. It is given every element of the run."
+        },
+        {
+          "id": "function-handle",
+          "level": 3,
+          "name": "handle",
+          "pills": ["(results, ctx) => decisions"],
+          "body": "Decides the severity of each result, after every element is classified. A null severity raises no finding."
+        }
+      ]
+    },
+    {
+      "title": "Element fields",
+      "intro": "The `self` a function is given: one captured element.",
+      "entries": [
+        {
+          "id": "element-name",
+          "level": 3,
+          "name": "name",
+          "pills": ["string"],
+          "body": "The declared name, or the heading's text. Absent when the capture has none."
+        },
+        {
+          "id": "element-value",
+          "level": 3,
+          "name": "value",
+          "pills": ["string"],
+          "body": "What the element holds under its name, such as the value of a key."
+        },
+        {
+          "id": "element-source",
+          "level": 3,
+          "name": "source",
+          "pills": ["string"],
+          "body": "The element's text, less what its grammar omits from the capture."
+        },
+        {
+          "id": "element-parent",
+          "level": 3,
+          "name": "parent",
+          "pills": ["element | null"],
+          "body": "The element this one sits inside."
+        },
+        {
+          "id": "element-element",
+          "level": 3,
+          "name": "element",
+          "pills": ["(target, name?) => element"],
+          "body": "The one element directly inside this one that a target takes. It throws when there is none, or more than one."
+        },
+        {
+          "id": "element-elements",
+          "level": 3,
+          "name": "elements",
+          "pills": ["(target?) => element[]"],
+          "body": "The elements directly inside this one that a target takes, or all of them, in file order."
+        },
+        {
+          "id": "element-capture",
+          "level": 3,
+          "name": "capture",
+          "pills": ["string"],
+          "body": "What the element is, as its grammar captures it."
+        },
+        {
+          "id": "element-grammar",
+          "level": 3,
+          "name": "grammar",
+          "pills": ["string"],
+          "body": "The grammar that captured the element."
+        },
+        {
+          "id": "element-path",
+          "level": 3,
+          "name": "path",
+          "pills": ["string"],
+          "body": "The file the element is in."
+        },
+        {
+          "id": "element-span",
+          "level": 3,
+          "name": "span",
+          "pills": ["object"],
+          "body": "Where the element is in the file: lines, columns and bytes."
+        },
+        {
+          "id": "element-signature",
+          "level": 3,
+          "name": "signature",
+          "pills": ["string"],
+          "body": "A definition's text up to its body, or its first line."
+        },
+        {
+          "id": "element-attachedcomment",
+          "level": 3,
+          "name": "attachedComment",
+          "pills": ["string[]"],
+          "body": "The comment run directly above a definition."
+        },
+        {
+          "id": "element-docstrings",
+          "level": 3,
+          "name": "docstrings",
+          "pills": ["string[]"],
+          "body": "The docstrings a definition owns outside its own text."
+        },
+        {
+          "id": "element-docstringof",
+          "level": 3,
+          "name": "docstringOf",
+          "pills": ["object"],
+          "body": "For a docstring: the definition it documents."
+        },
+        {
+          "id": "element-internalcommentcount",
+          "level": 3,
+          "name": "internalCommentCount",
+          "pills": ["number"],
+          "body": "How many comments sit inside the element."
+        },
+        {
+          "id": "element-docstringcount",
+          "level": 3,
+          "name": "docstringCount",
+          "pills": ["number"],
+          "body": "How many docstrings the definition owns."
+        },
+        {
+          "id": "element-id",
+          "level": 3,
+          "name": "id",
+          "pills": ["string"],
+          "body": "The element's identity in this run."
+        },
+        {
+          "id": "element-label",
+          "level": 3,
+          "name": "label",
+          "pills": ["string"],
+          "body": "The element's position in its file, such as d0."
+        }
+      ]
+    },
+    {
+      "title": "Context fields",
+      "intro": "The `ctx` of `state` and `classify`.",
+      "entries": [
+        {
+          "id": "context-file",
+          "level": 3,
+          "name": "file",
+          "pills": ["object"],
+          "body": "The file the element is in."
+        },
+        {
+          "id": "context-targets",
+          "level": 3,
+          "name": "targets",
+          "pills": ["element[]"],
+          "body": "Every element the rule judges in this run."
+        }
+      ]
+    },
+    {
+      "title": "File fields",
+      "intro": "The `ctx.file` of `state` and `classify`.",
+      "entries": [
+        {
+          "id": "file-path",
+          "level": 3,
+          "name": "path",
+          "pills": ["string"],
+          "body": "The file's path."
+        },
+        {
+          "id": "file-source",
+          "level": 3,
+          "name": "source",
+          "pills": ["string"],
+          "body": "The file's whole text."
+        },
+        {
+          "id": "file-element",
+          "level": 3,
+          "name": "element",
+          "pills": ["(target, name?) => element"],
+          "body": "The one element in the file that a target takes. It throws when there is none, or more than one."
+        },
+        {
+          "id": "file-elements",
+          "level": 3,
+          "name": "elements",
+          "pills": ["(target?) => element[]"],
+          "body": "The elements in the file that a target takes, or all of them, in file order."
+        },
+        {
+          "id": "file-definitions",
+          "level": 3,
+          "name": "definitions",
+          "pills": ["element[]"],
+          "body": "The file's definitions."
+        },
+        {
+          "id": "file-comments",
+          "level": 3,
+          "name": "comments",
+          "pills": ["element[]"],
+          "body": "The file's comments."
+        },
+        {
+          "id": "file-imports",
+          "level": 3,
+          "name": "imports",
+          "pills": ["element[]"],
+          "body": "The file's imports."
+        }
+      ]
     }
   ],
   "environment": [

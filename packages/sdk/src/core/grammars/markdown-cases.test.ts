@@ -81,7 +81,11 @@ const PROSE: readonly Case[] = [
   ],
   ["two paragraphs in an item", "- a\n\n  b\n", ["list", "list_item < list", "list_item < list"]],
   ["a table", "| a |\n|---|\n| 1 |\n", ["table"]],
-  ["YAML front matter", "---\na: 1\n---\n\nx\n", ["frontmatter", "paragraph"]],
+  [
+    "YAML front matter",
+    "---\na: 1\n---\n\nx\n",
+    ["frontmatter", "pair a < frontmatter", "paragraph"],
+  ],
 ];
 
 const NOTHING: readonly Case[] = [

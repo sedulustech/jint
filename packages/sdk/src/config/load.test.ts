@@ -4,6 +4,14 @@ import { catalogConfig, catalog } from "../../tests/test-baseline.ts";
 import { SetupError } from "../core/types.ts";
 import { loadConfig, validateConfig } from "./load.ts";
 
+const DECLARATIVE_RULE = {
+  name: "is_fine",
+  target: "functions",
+  instructions: "i",
+  criteria: { true: "t", false: "f" },
+  handle: { warn: { greater_than: 0.5 } },
+};
+
 describe("loadConfig", () => {
   test("loads a valid JSON config: exclude applied", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.json", {
@@ -55,6 +63,14 @@ describe("loadConfig", () => {
         present: false,
       });
     }
+  });
+
+  test("a composed state in a declarative rule is an error that names the TypeScript config", () => {
+    const rule = { ...DECLARATIVE_RULE, state: { title: "a" } };
+    expect(() => validateConfig({ rules: { use: [rule] } }, "jint.config.json")).toThrow(
+      /rule 'is_fine' state: .*jint\.config\.ts/,
+    );
+    expect(() => validateConfig({ rules: { use: [DECLARATIVE_RULE] } }, "a.json")).not.toThrow();
   });
 
   test("unknown rule name -> CONFIG_INVALID (and it names the missing catalog)", () => {

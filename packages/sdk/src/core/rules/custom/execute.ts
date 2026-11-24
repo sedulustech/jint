@@ -33,39 +33,51 @@ import {
   type CustomFile,
   type CustomRule,
 } from "./schema.ts";
+import { selectionOf } from "./selection.ts";
+import type { GrammarRegistry } from "../../grammars/grammars.ts";
 import type { InventoryElement } from "../../grammars/walk.ts";
 
 /**
- * One file's elements for rules, in file order. A dangling parent label is an inventory
- * inconsistency: it throws, never silently nulls.
+ * The element around this one. A dangling parent label is an inventory inconsistency: it throws,
+ * never silently nulls.
  */
-function fileElementsOf(inventory: readonly InventoryElement[], path: string): CustomElement[] {
+function parentOf(
+  element: InventoryElement,
+  byLabel: ReadonlyMap<string, InventoryElement>,
+): InventoryElement | undefined {
+  if (element.parent === undefined) return undefined;
+  const parent = byLabel.get(element.parent);
+  if (parent !== undefined) return parent;
+  throw new Error(
+    `inventory inconsistency: element ${element.label} names parent ${element.parent}, which does not exist`,
+  );
+}
+
+const placeName = ({ capture, name }: InventoryElement): string =>
+  name === undefined ? `the ${capture}` : `the ${capture} "${name}"`;
+
+function elementsInFileOrder(
+  inventory: readonly InventoryElement[],
+  path: string,
+  registry?: GrammarRegistry,
+): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
+  const insideOf = new Map<string, CustomElement[]>();
   const convert = (e: InventoryElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
-    const parentLabel = e.parent;
-    const parent = parentLabel !== undefined ? byLabel.get(parentLabel) : undefined;
-    if (parentLabel !== undefined && parent === undefined) {
-      throw new Error(
-        "inventory inconsistency: element " +
-          e.label +
-          " names parent " +
-          parentLabel +
-          ", which does not exist",
-      );
-    }
+    const enclosing = parentOf(e, byLabel);
     const { content, nodeType: _nodeType, oversized: _oversized, ...walked } = e;
+    const inside: CustomElement[] = [];
+    insideOf.set(e.label, inside);
     const element: CustomElement = {
       ...walked,
       path,
       source: content,
-      parent: parent ? convert(parent) : null,
-      children: [],
+      parent: enclosing === undefined ? null : convert(enclosing),
+      ...selectionOf(inside, placeName(e), registry),
     };
-    // an element reaches its parent, so a listed child would make it a cycle that JSON refuses
-    Object.defineProperty(element, "children", { enumerable: false });
     cache.set(e.label, element);
     return element;
   };
@@ -73,7 +85,7 @@ function fileElementsOf(inventory: readonly InventoryElement[], path: string): C
     .sort((a, b) => a.span.startByte - b.span.startByte || b.span.endByte - a.span.endByte)
     .map(convert);
   for (const element of elements) {
-    (element.parent?.children as CustomElement[] | undefined)?.push(element);
+    if (element.parent !== null) insideOf.get(element.parent.label)!.push(element);
   }
   return elements;
 }
@@ -83,7 +95,7 @@ export function tsElementsOf(
   inventory: readonly InventoryElement[],
   path: string,
 ): CustomElement[] {
-  return judgeable(inventory, fileElementsOf(inventory, path));
+  return judgeable(inventory, elementsInFileOrder(inventory, path));
 }
 
 function judgeable(
@@ -111,11 +123,12 @@ export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
   inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
   sourceByPath: ReadonlyMap<string, string> = new Map(),
+  registry?: GrammarRegistry,
 ): ResolvedCustomTargets {
   const elementsByPath = new Map<string, readonly CustomElement[]>();
   const fileElements = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
-    const elements = fileElementsOf(inventory, path);
+    const elements = elementsInFileOrder(inventory, path, registry);
     fileElements.set(path, elements);
     elementsByPath.set(path, judgeable(inventory, elements));
   }
@@ -135,6 +148,7 @@ export function resolveAllCustomTargets(
             sourceByPath.get(path) ?? "",
             elementsByPath.get(path)!,
             fileElements.get(path)!,
+            registry,
           ),
         );
       }
@@ -148,6 +162,7 @@ function customFileOf(
   source: string,
   elements: readonly CustomElement[],
   all: readonly CustomElement[] = elements,
+  registry?: GrammarRegistry,
 ): CustomFile {
   return {
     path,
@@ -155,7 +170,7 @@ function customFileOf(
     definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
     comments: elements.filter((e) => e.capture === "comment"),
     imports: elements.filter((e) => e.capture === "import"),
-    elements: all,
+    ...selectionOf(all, "the file", registry),
   };
 }
 

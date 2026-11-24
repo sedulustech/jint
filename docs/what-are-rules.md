@@ -49,17 +49,30 @@ wins. A rule about React components, for example, should only read `**/*.tsx` fi
 
 ## Custom rules
 
-A declarative rule asks the same question of every element. When the answer needs more than the
-element, write `state(self, ctx)`. It runs once for each captured element and returns the parts the
-classifier reads. Each element has a `name`, its `source`, its `parent` and its `children`.
-`ctx.file` is the file the element sits in: its `path`, its `source`, and its `elements` in file
-order. A part that is empty for some elements is reported after the run.
+A rule with a `state` or `classify` function, a function `target` or a function `handle` is a custom
+rule. It works only in `jint.config.ts`, and declarative rules beside it compile as usual.
 
-When the question itself changes from one element to the next, write `classify(self, ctx)` instead.
-It returns the instructions, the criteria and the state.
+**A JSON config cannot compose a state yet.** A rule with a `state` there fails to load.
 
-A rule with a `state` or `classify` function, a function `target` or a function `handle` is a custom rule. It
-works only in `jint.config.ts`, and declarative rules beside it compile as usual.
+### Compose the state
+
+The state is what the classifier reads. A declarative rule's state is the source of the element.
+When the answer needs something else, write `state(self, ctx)`. It runs once for each captured element
+and returns the parts of the state.
+
+The grammar decides what exists: each capture is an element. The rule decides which of them the
+classifier reads. `self` is the element being judged, and `ctx.file` is the file it sits in. The
+[config reference](reference/config.md#element-fields) lists their fields.
+
+Both pick other elements by what a `target` takes. `element` gives the one that matches, by its name
+when you pass one, and throws when there is none or more than one. `elements` gives all of them.
+
+```ts
+state: (page, { file }) => ({
+  title: file.element("markdown:frontmatter").element("yaml:pair", "title").value,
+  sections: page.elements("markdown:h2").map((section) => section.name),
+}),
+```
 
 ```ts
 import { defineConfig } from "jint:sdk";
@@ -86,9 +99,26 @@ export default defineConfig({
 });
 ```
 
+For `send_email` in a Python class `Invoice`, the classifier reads this state:
+
+```json
+{
+  "method": "def send_email(self): ...",
+  "class": "Invoice"
+}
+```
+
+A declarative rule cannot see the class. With it, the classifier reads `def total` as part of the
+invoice and `def send_email` as a different job.
+
+A part that is empty for some elements is reported after the run. When `element` finds nothing, or your
+function throws, that element gets an error and the run goes on.
+
+When the question itself changes from one element to the next, write `classify(self, ctx)` instead.
+It returns the instructions, the criteria and the state.
+
+### Decide the severity
+
 A `handle` function, `(results, ctx) => decisions`, runs once after classification. It returns one
 decision: `{ severity: "error" | "warn" | null, message? }`. A `null` severity is
 silent, and the `message` tells the caller how to fix the finding.
-
-On a Python class `Invoice`, the classifier reads `def total` as part of the invoice and
-`def send_email` as a different job. A declarative rule cannot see the class.

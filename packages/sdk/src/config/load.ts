@@ -457,6 +457,16 @@ function throwConfigInvalid(raw: unknown, source: string): never {
   );
 }
 
+/** A declarative rule reads the element's source: a state it declares would be silently ignored. */
+function rejectComposedState(entry: { readonly name: string }, source: string): void {
+  const field = ["state", "classify"].find((key) => key in entry);
+  if (field === undefined) return;
+  throw new SetupError(
+    "CONFIG_INVALID",
+    `invalid config ${source}: rule '${entry.name}' ${field}: must be a function, and a JSON config cannot hold one - write the rule in jint.config.ts`,
+  );
+}
+
 /**
  * Entries to compiled rules. A bare name selects a compiled catalog rule, an object declares a full
  * rule through the single compile seam. A repeated name is a config error naming both entries -
@@ -516,6 +526,7 @@ function resolveRules(
       }
       byName.set(entry, rule);
     } else {
+      rejectComposedState(entry, source);
       const { override: _override, ...spec } = entry;
       byName.set(entry.name, compileRule(spec as typeof entry, source));
     }

@@ -13,22 +13,31 @@ import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler, CONDITION_SCHEMA, NOUL_HANDLER_SCHEMA } from "../handle.ts";
 import type { InventoryElement } from "../../grammars/walk.ts";
 
+/** How a rule picks captured elements: in a file, or directly inside an element. */
+export interface ElementSelection {
+  /**
+   * The one element a target takes, with this name when one is given. It throws when there is none,
+   * or more than one.
+   */
+  readonly element: (target: string, name?: string) => CustomElement;
+  /** Every element a target takes, or every element without one, in file order. */
+  readonly elements: (target?: string) => readonly CustomElement[];
+}
+
 /**
  * The element a rule sees: what the walk found, in its file, linked to the elements around it.
  * Every field of the walk's element reaches a rule unless it is left out here.
  */
-export interface CustomElement extends Omit<
-  InventoryElement,
-  "content" | "nodeType" | "oversized" | "parent"
-> {
+export interface CustomElement
+  extends
+    ElementSelection,
+    Omit<InventoryElement, "content" | "nodeType" | "oversized" | "parent"> {
   /** The file the element is in. */
   readonly path: string;
   /** The element's text, less what its grammar omits from the capture. */
   readonly source: string;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
-  /** The elements directly inside this one, in file order. */
-  readonly children: readonly CustomElement[];
 }
 
 /** The rule's environment, assembled by the engine after target resolution. */
@@ -44,14 +53,12 @@ export interface RuleContext {
  * The file an element sits in, as the walk saw it: its text and every element in it, in walk order.
  * The element being judged is one of them, the same object.
  */
-export interface CustomFile {
+export interface CustomFile extends ElementSelection {
   readonly path: string;
   readonly source: string;
   readonly definitions: readonly CustomElement[];
   readonly comments: readonly CustomElement[];
   readonly imports: readonly CustomElement[];
-  /** Every element in the file, in file order. */
-  readonly elements: readonly CustomElement[];
 }
 
 /** Classify's environment: the rule's context plus the file of the element being judged. */

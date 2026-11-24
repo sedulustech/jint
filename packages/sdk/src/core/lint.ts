@@ -488,6 +488,7 @@ async function* walkUnits(
       customRules,
       elementsByPathOf(units, walked),
       sourceByPathOf(units, walked),
+      registry,
     );
     if (!rules.some((r) => targetsFiles(r.target))) {
       retainTargetedContent(units, walked, customResolved);

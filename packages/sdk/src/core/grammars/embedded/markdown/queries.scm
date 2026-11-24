@@ -103,8 +103,8 @@
 
 ; frontmatter: the YAML block fenced by --- on the file's first lines (tree-sitter-markdown's
 ; minus_metadata). One element per file at most, a leaf the sections never contain: it precedes
-; the first heading, so it is the page's own metadata (title, description), judged whole.
-((minus_metadata) @frontmatter (#set! "capture.frontmatter.definition" "true"))
+; the first heading, so it is the page's own metadata (title, description). Its text is YAML, so its keys are yaml's @pair.
+((minus_metadata) @frontmatter (#set! "capture.frontmatter.definition" "true") (#set! "capture.frontmatter.injection" "yaml"))
 
 ; table: the WHOLE pipe table as one element - header row, delimiter row and every body row. One
 ; per table; a table in a list entry or a quote is the same node and is captured the same way.

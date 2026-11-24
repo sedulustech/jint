@@ -57,6 +57,7 @@ demands action.
 - **subdomain** — a domain nested in another, a refinement of it (comments/typescript under comments): it adds rules or examples for one technology and never rewords its parent's questions. It is a subpath of the parent's package, never a package of its own.
 - **descent default** — how a capture treats a match nested inside another match of the same
   capture: absorbed into it, kept as its child, or measured as an element of its own.
+- **injection** — a capture whose text is in another language, declared by a directive; that language's grammar captures what is inside it, in the same file.
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
   union of element kinds (FileElement, FunctionElement, ...) is what a classification references;

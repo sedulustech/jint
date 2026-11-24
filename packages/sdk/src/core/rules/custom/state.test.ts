@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { EMBEDDED } from "../../grammars/grammars.ts";
 import { decompose, projectElement, type InventoryElement } from "../../grammars/walk.ts";
 import { resolveAllCustomTargets, runCustomRules } from "./execute.ts";
 import { validateCustomRule, type CustomElement, type CustomRule } from "./schema.ts";
@@ -41,7 +42,7 @@ async function statesOf(
   const full = { name: "is_rule", handle: { warn: { greater_than: 0.5 } }, ...QUESTION, ...rule };
   const valid = validateCustomRule(full, "jint.config.ts");
   const inventory = new Map([["f", await inventoryOf(source, language)]]);
-  const resolved = resolveAllCustomTargets([valid], inventory);
+  const resolved = resolveAllCustomTargets([valid], inventory, undefined, EMBEDDED);
   const { events } = await runCustomRules([valid], resolved, classifier, () => false);
   return {
     states,
@@ -51,11 +52,10 @@ async function statesOf(
 }
 
 const example = (entry: CustomElement): string | undefined =>
-  entry.children.find((c) => c.capture === "code_block")?.children.find((c) => c.capture === "code")
-    ?.source;
+  entry.elements("markdown:code_block")[0]?.elements("markdown:code")[0]?.source;
 
 describe("a rule's state function", () => {
-  test("composes from the parent, the name and the children", async () => {
+  test("composes from the parent, the name and the elements inside", async () => {
     const { states } = await statesOf(
       {
         target: "markdown:h4",
@@ -83,11 +83,11 @@ describe("a rule's state function", () => {
     ]);
   });
 
-  test("file.elements is every element, in file order", async () => {
+  test("file.elements() is every element, in file order", async () => {
     const { states } = await statesOf(
       {
         target: "functions",
-        state: (_, { file }) => ({ order: file.elements.map((e) => e.capture + " " + e.name) }),
+        state: (_, { file }) => ({ order: file.elements().map((e) => e.capture + " " + e.name) }),
       },
       'import a from "a";\n\n\n// loose\n\n\nclass A {\n  m() {}\n}\nexport function f() {}\n',
       "typescript",
@@ -97,18 +97,48 @@ describe("a rule's state function", () => {
     ]);
   });
 
-  test("a parent lists its children, and each child names that parent", async () => {
+  test("an element lists those directly inside it, and each names it as its parent", async () => {
     await statesOf(
       {
         target: "markdown:h4",
         state: (h4) => {
-          for (const child of h4.children) expect(child.parent).toBe(h4);
-          expect(h4.parent!.children).toContain(h4);
+          for (const child of h4.elements()) expect(child.parent).toBe(h4);
+          expect(h4.parent!.elements()).toContain(h4);
           return {};
         },
       },
       CLI,
     ).then(({ states, errors }) => expect([states.length, errors]).toEqual([2, []]));
+  });
+
+  const PAGE = '---\ntitle: "A page"\nsidebar:\n  title: Short\n---\n\n# A\n\n## B\n\n## C\n';
+
+  test("element is the one a target takes, found by its name among those directly inside", async () => {
+    const { states } = await statesOf(
+      {
+        target: "markdown:h1",
+        state: (h1, { file }) => ({
+          title: file.element("markdown:frontmatter").element("yaml:pair", "title").value,
+          sections: h1.elements("markdown:h2").map((h2) => h2.name),
+        }),
+      },
+      PAGE,
+    );
+    expect(states as unknown).toEqual([{ title: "A page", sections: ["B", "C"] }]);
+  });
+
+  test.each([
+    ["markdown:table", undefined, 'the h1 "A" has no markdown:table'],
+    ["markdown:h2", "D", 'the h1 "A" has no markdown:h2 named "D"'],
+    ["markdown:h2", undefined, 'the h1 "A" has 2 markdown:h2'],
+    ["markdown:h22", undefined, 'does not emit "h22"'],
+  ])("element %p %p throws", async (target, name, message) => {
+    const { errors } = await statesOf(
+      { target: "markdown:h1", state: (h1) => ({ e: h1.element(target, name) }) },
+      PAGE,
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(message);
   });
 
   test("an element in a state is still valid JSON", async () => {
