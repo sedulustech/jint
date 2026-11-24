@@ -72,11 +72,11 @@ function walkedFile(
   inventory: readonly InventoryElement[],
   registry?: GrammarRegistry,
 ): WalkedFile {
-  const elements: CustomElement[] = [];
-  const judged: CustomElement[] = [];
-  const file = emptyFile(path, source, inventory, selectionOf(elements, "the file", registry));
-  elements.push(...elementsInFileOrder(inventory, file, registry));
-  judged.push(...judgeable(inventory, elements));
+  const topLevel: CustomElement[] = [];
+  const file = emptyFile(path, source, inventory, selectionOf(topLevel, "the file", registry));
+  const elements = elementsInFileOrder(inventory, file, registry);
+  topLevel.push(...elements.filter(({ parent }) => parent === null));
+  const judged = judgeable(inventory, elements);
   file.definitions.push(...judged.filter(isDefinition));
   file.comments.push(...judged.filter((e) => e.capture === "comment"));
   file.imports.push(...judged.filter((e) => e.capture === "import"));

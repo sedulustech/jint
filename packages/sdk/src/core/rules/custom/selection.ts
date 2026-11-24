@@ -14,6 +14,8 @@ export function selectionOf(
     if (target === "files")
       throw new Error(`${place} holds elements, and a file is not one of them`);
     if (registry !== undefined) assertCaptureAddress(target, registry);
+    // a target judges a comment through the definition it belongs to; here it is an element like any other
+    if (target === "comments") return within.filter(({ capture }) => capture === "comment");
     return within.filter((element) => matchesTarget(target, element));
   };
   const getElement = (target: string, name?: string): CustomElement => {

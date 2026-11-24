@@ -1,7 +1,7 @@
 import type { CustomElement, CustomRule } from "jint:sdk";
 
 const declarationsOf = (elements: readonly CustomElement[]) =>
-  elements.filter((e) => e.parent === null && e.name !== undefined);
+  elements.filter((e) => e.name !== undefined);
 
 /** The declarations a rule names, and the ones those name. */
 function usedBy(rule: CustomElement, declarations: readonly CustomElement[]): CustomElement[] {

@@ -360,14 +360,14 @@
           "level": 3,
           "name": "getElement",
           "pills": ["(target, name?) => element"],
-          "body": "The one element directly inside this one that a target takes. It throws when there is none, or more than one."
+          "body": "The one element directly inside this one that a selector matches. It throws when there is none, or more than one."
         },
         {
           "id": "element-getelements",
           "level": 3,
           "name": "getElements",
           "pills": ["(target?) => element[]"],
-          "body": "The elements directly inside this one that a target takes, or all of them, in file order."
+          "body": "The elements directly inside this one that a selector matches, or all of them, in file order."
         },
         {
           "id": "element-capture",
@@ -491,28 +491,28 @@
           "level": 3,
           "name": "getElement",
           "pills": ["(target, name?) => element"],
-          "body": "The one element in the file that a target takes. It throws when there is none, or more than one."
+          "body": "The one element at the top of the file that a selector matches. It throws when there is none, or more than one."
         },
         {
           "id": "file-getelements",
           "level": 3,
           "name": "getElements",
           "pills": ["(target?) => element[]"],
-          "body": "The elements in the file that a target takes, or all of them, in file order."
+          "body": "The elements at the top of the file that a selector matches, or all of them, in file order."
         },
         {
           "id": "file-definitions",
           "level": 3,
           "name": "definitions",
           "pills": ["element[]"],
-          "body": "The file's definitions."
+          "body": "The file's definitions, at any depth."
         },
         {
           "id": "file-comments",
           "level": 3,
           "name": "comments",
           "pills": ["element[]"],
-          "body": "The file's comments."
+          "body": "The file's comments, at any depth."
         },
         {
           "id": "file-imports",

@@ -34,14 +34,14 @@ export const FILE_FIELDS: Fields<
   source: ["string", "The file's whole text."],
   getElement: [
     "(target, name?) => element",
-    "The one element in the file that a target takes. It throws when there is none, or more than one.",
+    "The one element at the top of the file that a selector matches. It throws when there is none, or more than one.",
   ],
   getElements: [
     "(target?) => element[]",
-    "The elements in the file that a target takes, or all of them, in file order.",
+    "The elements at the top of the file that a selector matches, or all of them, in file order.",
   ],
-  definitions: ["element[]", "The file's definitions."],
-  comments: ["element[]", "The file's comments."],
+  definitions: ["element[]", "The file's definitions, at any depth."],
+  comments: ["element[]", "The file's comments, at any depth."],
   imports: ["element[]", "The file's imports."],
 };
 
@@ -53,11 +53,11 @@ export const ELEMENT_FIELDS: Fields<CustomElement> = {
   file: ["file", "The file the element is in. A file's own is itself."],
   getElement: [
     "(target, name?) => element",
-    "The one element directly inside this one that a target takes. It throws when there is none, or more than one.",
+    "The one element directly inside this one that a selector matches. It throws when there is none, or more than one.",
   ],
   getElements: [
     "(target?) => element[]",
-    "The elements directly inside this one that a target takes, or all of them, in file order.",
+    "The elements directly inside this one that a selector matches, or all of them, in file order.",
   ],
   capture: ["string", "What the element is, as its grammar captures it."],
   grammar: ["string", "The grammar that captured the element."],

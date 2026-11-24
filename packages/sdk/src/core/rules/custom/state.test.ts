@@ -83,7 +83,7 @@ describe("a rule's state function", () => {
     ]);
   });
 
-  test("file.getElements() is every element, in file order", async () => {
+  test("file.getElements() is each element at the top of the file, in file order", async () => {
     const { states } = await statesOf(
       {
         target: "functions",
@@ -95,7 +95,7 @@ describe("a rule's state function", () => {
       "typescript",
     );
     expect(states as unknown).toEqual([
-      { order: ["import undefined", "comment undefined", "class A", "method m", "function f"] },
+      { order: ["import undefined", "comment undefined", "class A", "function f"] },
     ]);
   });
 
@@ -129,6 +129,38 @@ describe("a rule's state function", () => {
     expect(states as unknown).toEqual([{ title: "A page", sections: ["B", "C"] }]);
   });
 
+  test("a selector looks at one level, in a file and in an element", async () => {
+    const { states } = await statesOf(
+      {
+        target: "files",
+        state: (file) => ({
+          top: file.getElement("yaml:pair", "name").value,
+          inside: file
+            .getElement("yaml:pair", "author")
+            .getElements("yaml:pair")
+            .map((pair) => pair.value),
+        }),
+      },
+      "name: a\nauthor:\n  name: b\n",
+      "yaml",
+    );
+    expect(states as unknown).toEqual([{ top: "a", inside: ["b"] }]);
+  });
+
+  test("comments selects the comments, and not the definitions that own one", async () => {
+    const { states } = await statesOf(
+      {
+        target: "classes",
+        state: (self) => ({
+          inside: self.getElements("comments").map((comment) => comment.source),
+        }),
+      },
+      'class A:\n    """doc"""\n\n    # plain\n    def m(self):\n        """what m does"""\n',
+      "python",
+    );
+    expect(states as unknown).toEqual([{ inside: ['"""doc"""', "# plain"] }]);
+  });
+
   test("a files target judges the file", async () => {
     const { states } = await statesOf(
       {
@@ -136,7 +168,7 @@ describe("a rule's state function", () => {
         state: (file) => ({
           same: file === file.file,
           title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
-          sections: file.getElements("markdown:h2").length,
+          sections: file.getElement("markdown:h1").getElements("markdown:h2").length,
         }),
       },
       PAGE,

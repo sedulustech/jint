@@ -64,15 +64,21 @@ The grammar decides what exists: each capture is an element. The rule decides wh
 classifier reads. `target` is the element being judged, and `target.file` is the file it sits in. The
 [config reference](reference/config.md#element-fields) lists their fields.
 
-Both pick other elements by what a `target` takes. `getElement` gives the one that matches, by its name
-when you pass one, and throws when there is none or more than one. `getElements` gives all of them. When the `target`
-is `files`, it is the file.
+Both select other elements at one level: directly inside an element, or at the top of a file. A
+selector is a word a `target` takes, such as `methods` or `markdown:h2`, and `comments` selects the
+comments alone. `getElement` gives the one that matches, by its name when you pass one, and throws when
+there is none or more than one. `getElements` gives all of them.
+
+This rule judges a page, so its target is the file:
 
 ```ts
 target: "files",
 state: (file) => ({
   title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
-  sections: file.getElements("markdown:h2").map((section) => section.name),
+  sections: file
+    .getElement("markdown:h1")
+    .getElements("markdown:h2")
+    .map((section) => section.name),
 }),
 ```
 

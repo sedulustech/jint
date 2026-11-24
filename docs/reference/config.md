@@ -309,13 +309,13 @@ _file_
 
 ### `getElement`
 
-The one element directly inside this one that a target takes. It throws when there is none, or more than one.
+The one element directly inside this one that a selector matches. It throws when there is none, or more than one.
 
 _(target, name?) => element_
 
 ### `getElements`
 
-The elements directly inside this one that a target takes, or all of them, in file order.
+The elements directly inside this one that a selector matches, or all of them, in file order.
 
 _(target?) => element[]_
 
@@ -419,25 +419,25 @@ _string_
 
 ### `getElement`
 
-The one element in the file that a target takes. It throws when there is none, or more than one.
+The one element at the top of the file that a selector matches. It throws when there is none, or more than one.
 
 _(target, name?) => element_
 
 ### `getElements`
 
-The elements in the file that a target takes, or all of them, in file order.
+The elements at the top of the file that a selector matches, or all of them, in file order.
 
 _(target?) => element[]_
 
 ### `definitions`
 
-The file's definitions.
+The file's definitions, at any depth.
 
 _element[]_
 
 ### `comments`
 
-The file's comments.
+The file's comments, at any depth.
 
 _element[]_
 

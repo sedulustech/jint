@@ -13,14 +13,14 @@ import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler, CONDITION_SCHEMA, NOUL_HANDLER_SCHEMA } from "../handle.ts";
 import type { InventoryElement } from "../../grammars/walk.ts";
 
-/** How a rule picks captured elements: in a file, or directly inside an element. */
+/** How a rule picks captured elements: those directly inside an element, or at the top of a file. */
 export interface ElementSelection {
   /**
-   * The one element a target takes, with this name when one is given. It throws when there is none,
-   * or more than one.
+   * The one element a selector matches, with this name when one is given. It throws when there is
+   * none, or more than one.
    */
   readonly getElement: (target: string, name?: string) => CustomElement;
-  /** Every element a target takes, or every element without one, in file order. */
+  /** Every element a selector matches, or every element without one, in file order. */
   readonly getElements: (target?: string) => readonly CustomElement[];
 }
 
