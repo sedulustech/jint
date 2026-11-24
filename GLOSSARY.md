@@ -56,7 +56,7 @@ demands action.
 - **domain** — a named group of rules, one package, imported as jint:rules/<domain>. A domain is a subject a rule belongs to: a property judged (comments, naming) or a technology (typescript, react). A domain holds rules and may nest subdomains; it is not a dimension (one property inside one rule) and not a scope (a path selection).
 - **subdomain** — a domain nested in another, a refinement of it (comments/typescript under comments): it adds rules or examples for one technology and never rewords its parent's questions. It is a subpath of the parent's package, never a package of its own.
 - **descent default** — how a capture treats a match nested inside another match of the same
-  capture: absorbed into it, kept as its child, or measured as an element of its own.
+  capture.
 - **injection** — a capture whose text is in another language, declared by a directive; that language's grammar captures what is inside it, in the same file.
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
@@ -78,17 +78,11 @@ demands action.
   (`markdown:h4` is every `####` line). Its parent is its section.
 - **code_block**, **code** — markdown's whole fence, and the text inside it. An indented block is
   `code` alone.
-- **list** — markdown's whole-list capture (@list, md-only): one element per bullet or ordered
-  list, spanning every item, markers kept in its text. Lists nest - a nested list is an element
-  of its own (the selfNesting fact) - and a rule judging the list whole sees every sibling
-  entry (`markdown:list`).
-- **`list_item`** — markdown's list-entry capture (@list_item, md-only): the paragraph inside a
-  bullet or numbered item - marker stripped, continuations folded in, one element per entry; an
-  in-list paragraph is a list_item, never a paragraph (`markdown:list_item`).
-- **paragraph** — markdown's flat prose capture (@paragraph, md-only): a run of body text with
-  no heading and no interior structure worth judging alone. Flat by construction - paragraphs
-  never nest, so it needs no shape directive - and addressed through the qualified lane
-  (`markdown:paragraph`).
+- **list** — markdown's whole list (`markdown:list`), bulleted or numbered, with its entries inside it.
+- **`list_item`** — one entry of a markdown list, its marker and what is nested in it included
+  (`markdown:list_item`). Its text alone is its paragraph.
+- **paragraph** — a run of markdown body text (`markdown:paragraph`), in a section, a list entry or a
+  quote.
 - **`statement_group`** — typescript's and tsx's top-level code capture (@statement_group,
   `typescript:statement_group`): executable statements at program level that no definition owns
   (a script's setup calls, a CLI's main loop), one element per run of adjacent statements. Only

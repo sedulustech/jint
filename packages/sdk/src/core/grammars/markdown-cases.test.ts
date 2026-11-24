@@ -77,7 +77,13 @@ const HEADINGS: readonly Case[] = [
   [
     "a heading in a list",
     "- # L\n\n  x\n",
-    ["list", "h1.section L < list", "h1 L < h1.section", "paragraph < h1.section"],
+    [
+      "list",
+      "list_item < list",
+      "h1.section L < list_item",
+      "h1 L < h1.section",
+      "paragraph < h1.section",
+    ],
   ],
   // the parser makes no section for an underlined heading
   ["setext headings", "A\n=\n\nx\n\nB\n-\n", ["paragraph"]],
@@ -100,7 +106,13 @@ const CODE: readonly Case[] = [
   [
     "a fence in a list",
     "- i\n\n  ```sh\n  x\n  ```\n",
-    ["list", "list_item < list", "code_block < list", "code < code_block"],
+    [
+      "list",
+      "list_item < list",
+      "paragraph < list_item",
+      "code_block < list_item",
+      "code < code_block",
+    ],
   ],
   ["a fence in a quote", "> ```sh\n> x\n> ```\n", ["code_block", "code < code_block"]],
   // an indented block has no fence around its text
@@ -114,15 +126,58 @@ const PROSE: readonly Case[] = [
   ["an image", "![x](a.png)\n", ["paragraph"]],
   ["no final newline", "# A\n\nx", ["h1.section A", "h1 A < h1.section", "paragraph < h1.section"]],
   ["CRLF", "# A\r\n\r\nx\r\n", ["h1.section A", "h1 A < h1.section", "paragraph < h1.section"]],
-  ["a list", "- a\n- b\n", ["list", "list_item < list", "list_item < list"]],
-  ["a loose list", "- a\n\n- b\n", ["list", "list_item < list", "list_item < list"]],
-  ["a task list", "- [ ] a\n- [x] b\n", ["list", "list_item < list", "list_item < list"]],
+  [
+    "a list",
+    "- a\n- b\n",
+    [
+      "list",
+      "list_item < list",
+      "paragraph < list_item",
+      "list_item < list",
+      "paragraph < list_item",
+    ],
+  ],
+  [
+    "a loose list",
+    "- a\n\n- b\n",
+    [
+      "list",
+      "list_item < list",
+      "paragraph < list_item",
+      "list_item < list",
+      "paragraph < list_item",
+    ],
+  ],
+  [
+    "a task list",
+    "- [ ] a\n- [x] b\n",
+    [
+      "list",
+      "list_item < list",
+      "paragraph < list_item",
+      "list_item < list",
+      "paragraph < list_item",
+    ],
+  ],
   [
     "a list in a list",
     "- a\n  - b\n",
-    ["list", "list_item < list", "list < list", "list_item < list"],
+    [
+      "list",
+      "list_item < list",
+      "paragraph < list_item",
+      "list < list_item",
+      "list_item < list",
+      "paragraph < list_item",
+    ],
   ],
-  ["two paragraphs in an item", "- a\n\n  b\n", ["list", "list_item < list", "list_item < list"]],
+  [
+    "two paragraphs in an item",
+    "- a\n\n  b\n",
+    ["list", "list_item < list", "paragraph < list_item", "paragraph < list_item"],
+  ],
+  // the two have one span, and both are elements
+  ["a list of one entry", "- a\n", ["list", "list_item < list", "paragraph < list_item"]],
   ["a table", "| a |\n|---|\n| 1 |\n", ["table"]],
   [
     "YAML front matter",

@@ -13,6 +13,8 @@ NEW paragraph - L18.0-L19.0
 REF function - L9.0-L12.0
 REF type - L1.0-L22.7
 REF type - L5.0-L22.7
-NEW list_item - L15.2-L16.0
-NEW list_item - L16.2-L17.0
+NEW list_item - L15.0-L16.0
+NEW list_item - L16.0-L18.0
+NEW paragraph - L15.2-L16.0
+NEW paragraph - L16.2-L17.0
 NEW list - L15.0-L18.0

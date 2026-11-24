@@ -77,7 +77,7 @@ const PINNED: Readonly<
       h2: 1,
       "h1.section": 1,
       "h2.section": 1,
-      paragraph: 4,
+      paragraph: 6,
       code_block: 1,
       code: 1,
       list_item: 2,

@@ -2,7 +2,7 @@
 ; parses as empty external stubs and is transit anyway).
 ;
 ; These kinds of capture exist: the section and the heading line, each by its level, the code block and its
-; code, the frontmatter, the paragraph (loose prose), the list_item (one entry's text), the list (the
+; code, the frontmatter, the paragraph, the list_item (one entry, whole), the list (the
 ; whole list - the headword rule judges the list whole, the stateful rule judges each entry; the two
 ; granularities are two rules' questions, not one) and the table (the whole pipe table: a cell, a row
 ; or a column is read against its header and its siblings, so only the whole table is a unit a rule
@@ -20,11 +20,8 @@
 ; section (experiment F: 13 sections with the flag, 12 without - the last sibling shares the
 ; root's end offset).
 ;
-; PROSE: the paragraph (flat - paragraphs never nest; the pattern has no #set! directive and the
-; policy table's shape keeps them flat) is addressed as markdown:paragraph - LOOSE only: the
-; pattern enumerates the parents a loose paragraph has (section-direct, block_quote); the
-; list_item parent is the @list_item capture below, so an in-list paragraph is a list entry,
-; never loose prose (no double capture). The section CARRIER requires an atx_heading:
+; PROSE: the paragraph never nests, so it has no shape directive. The section CARRIER requires an
+; atx_heading:
 ; tree-sitter-markdown wraps content BEFORE the first heading in a headingless section - matching
 ; it would surface preamble (logo HTML blocks) as nameless elements; headingless sections match
 ; nothing (honest absence).
@@ -102,20 +99,17 @@
 (#set! "capture.h6.definition" "true")
 (#set! "capture.h6.nameOmit" "(^|\\s+)#+\\s*$")
 
-; list_item: the paragraph INSIDE a bullet/numbered entry, marker stripped - one per entry,
-; continuations folded in (the nested form: a nested entry's paragraph is a direct child of the
-; NESTED list_item, so it belongs to the nested item; the loose prose patterns below never see it)
-(list_item (paragraph) @list_item (#set! "capture.list_item.definition" "true"))
+; list_item: one WHOLE entry, its marker and everything nested in it. Its text alone is its paragraph.
+((list_item) @list_item (#set! "capture.list_item.definition" "true"))
+(#set! "capture.list_item.selfNesting" "true")
 
-; list: the WHOLE list as one element - one per bullet/ordered list, spanning every item. A
-; nested list is a list node of its own and nests legitimately (the selfNesting fact below rides
-; the grammar-wide flag the sections already declare: sections and lists both nest)
-(list) @list (#set! "capture.list.definition" "true") (#set! "capture.list.selfNesting" "true")
+; list: the WHOLE list as one element - one per bullet/ordered list, spanning every item. A nested
+; list is an element inside its entry. A list of one entry has that entry's span.
+((list) @list (#set! "capture.list.definition" "true") (#set! "capture.list.selfNesting" "true") (#set! "capture.list.sharesSpan" "true"))
 
-; PROSE, loose: paragraphs NOT inside a list entry. Parents are enumerated honestly (the grammar
-; allows paragraph under section, list_item, block_quote): the list_item parent is claimed above,
-; so loose prose is the section-direct and quoted forms - the loose-in-list stretch is gone.
+; paragraph: a run of body text, directly under a section, in a list entry or in a quote.
 (section (paragraph) @paragraph (#set! "capture.paragraph.definition" "true") (#set! "capture.paragraph.omit" "continuation")) ; @priority
+(list_item (paragraph) @paragraph)
 (block_quote (paragraph) @paragraph)
 
 ; code: code_block is a whole fence, code the text inside it. An indented block has no fence, so it
