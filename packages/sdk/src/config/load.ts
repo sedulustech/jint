@@ -35,12 +35,12 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 }
 
 // A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
-// grammar-autonomous vocabulary (markdown's markdown:section). Validated at lint
+// grammar-autonomous vocabulary (markdown's markdown:h2). Validated at lint
 // startup against the merged registry, never at config load.
 const CAPTURE_ADDRESS_SCHEMA = Type.String({
   pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
   description:
-    "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
+    "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
 });
 
 const TARGET_SCHEMA = Type.Union(

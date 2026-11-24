@@ -175,7 +175,7 @@ export default {
 | `imports`        | the file's imports as one merged unit                                         |
 
 Beyond the shared targets, a grammar-scoped capture address `<lang>:<capture>` reaches a
-grammar's own emitted captures (e.g. `markdown:section` - the grammar's queries.scm is
+grammar's own emitted captures (e.g. `markdown:h2` - the grammar's queries.scm is
 the single source; unknown grammar or unemitted capture is a setup error).
 
 Full table: docs/targets.md (generated from the live resolution).

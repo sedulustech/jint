@@ -39,7 +39,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(new Set(elements.map((e) => e.input))).toEqual(new Set(["a.md", "b.md"]));
     for (const e of elements) expect(e.grammar).toBe("markdown");
     // the embedded .scm: heading sections carry their heading text as the name
-    expect(elements.filter((e) => e.kind === "section").map((e) => e.name)).toContain("Title");
+    expect(elements.filter((e) => e.kind === "h1").map((e) => e.name)).toContain("Title");
   });
 
   test("capture(file, wip.scm): the query override drives extraction against an embedded grammar", async () => {
@@ -148,7 +148,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     }
     const md = elements.filter((e) => e.grammar === "markdown");
     const ts = elements.filter((e) => e.grammar === "typescript");
-    expect(md.every((e) => e.kind === "section" || e.kind === "paragraph")).toBe(true);
+    expect(md.every((e) => /^(h[1-6]|heading|paragraph)$/.test(e.kind))).toBe(true);
     expect(ts.map((e) => e.kind)).toContain("function");
     expect(ts.every((e) => e.input.endsWith(".ts"))).toBe(true);
   });
@@ -177,8 +177,8 @@ describe("capture() e2e — the exported sdk surface", () => {
   });
 
   test("a mixed-grammar dir: the ts/tsx byte-identical sibling extracts as itself", async () => {
-    // ts and tsx share a byte-identical .scm (the accidental divergence was reverted): handing
-    // ts's queries.scm to a .tsx file is the sibling case the identity guard must keep LEGAL
+    // ts and tsx share a byte-identical .scm : handing ts's queries.scm to a .tsx file is the
+    // sibling case the identity guard must keep LEGAL
     const dir = setup("sibling", { "app.tsx": "function A() {}\n" });
     const tsScm = join(
       new URL("../packages/sdk/src/core/grammars/embedded/typescript/queries.scm", import.meta.url)
@@ -190,9 +190,6 @@ describe("capture() e2e — the exported sdk surface", () => {
   });
 
   test('capture.import.merge "none" flips the merge behavior the declared way', async () => {
-    // default (embedded .scm): adjacent imports merge per contiguous run - ONE import element.
-    // The directive read makes the declaration do work: the same file under an .scm declaring
-    // capture.import.merge "none" yields each import as its OWN element.
     const dir = setup("merge", {
       "a.ts": 'import x from "x";\nimport y from "y";\nexport const z = 1;\n',
       "none.scm":
@@ -207,10 +204,7 @@ describe("capture() e2e — the exported sdk surface", () => {
   });
 
   test("the grammarPath overlay dies with its call: the next capture is embedded, never poisoned", async () => {
-    // THE POLLUTION PROOF (this-process form): a custom registration inside one capture() must not
-    // govern a LATER capture. The old module-level registry failed this - the shadow stuck and the
-    // next call silently extracted with it (or hit its interim guard); the per-call registry value
-    // makes the leak impossible by construction.
+    // a custom registration inside one capture() must not govern a later capture
     const dir = setup("poison", { "doc.md": DOC });
     const wip = join(dir, "wip.scm");
     writeFileSync(wip, '(paragraph) @section (#set! "capture.section.definition" "true")\n');
@@ -220,7 +214,10 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(overlaid.map((e) => e.span.start.line).sort()).toEqual([3, 7]);
     // the next call, overlay-less: the EMBEDDED extraction - heading sections carry names
     const after = await capture(file);
-    expect(after.filter((e) => e.kind === "section").map((e) => e.name)).toEqual(["Title", "Sub"]);
+    expect(after.filter((e) => /^h[1-6]$/.test(e.kind)).map((e) => e.name)).toEqual([
+      "Title",
+      "Sub",
+    ]);
     expect(after.some((e) => e.kind === "paragraph")).toBe(true);
   });
 

@@ -16,7 +16,7 @@ describe("markdown frontmatter", () => {
 
   test("the body still captures its own elements", async () => {
     const kinds = (await capture(FIXTURE)).map((e) => e.kind);
-    expect(kinds).toContain("section");
+    expect(kinds).toContain("h1");
     expect(kinds).toContain("paragraph");
   });
 });
@@ -27,7 +27,8 @@ describe("markdown frontmatter", () => {
 const INVENTORY: readonly Row[] = [
   // the fenced block is one element, closing fence included, ending where the next row starts
   { kind: "frontmatter", start: [1, 0], end: [5, 0] },
-  { id: "install", kind: "section", start: [6, 0], end: [9, 0], name: "Install" },
+  { id: "install", kind: "h1", start: [6, 0], end: [9, 0], name: "Install" },
+  { kind: "heading", start: [6, 0], end: [7, 0], parent: "install" },
   { kind: "paragraph", start: [8, 0], end: [9, 0], parent: "install" },
 ];
 

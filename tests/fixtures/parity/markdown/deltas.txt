@@ -1,7 +1,11 @@
 # Documented parity deltas: markdown (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
-NEW section Configuration L5.0-L23.0
-NEW section Getting started L1.0-L23.0
+NEW h2 Configuration L5.0-L23.0
+NEW h1 Getting started L1.0-L23.0
+NEW heading - L1.0-L2.0
+NEW heading - L5.0-L6.0
+NEW code_block - L9.0-L12.0
+NEW code - L10.0-L11.0
 NEW paragraph - L3.0-L4.0
 NEW paragraph - L7.0-L8.0
 NEW paragraph - L13.2-L14.0

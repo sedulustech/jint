@@ -75,6 +75,29 @@ export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<Suppr
   return declared;
 }
 
+/** Capture name to the capture whose nodes its text leaves out. */
+export function scmCaptureOmits(scm: string): ReadonlyMap<string, string> {
+  return captureSettings(scm, "omit");
+}
+
+export function scmNameOmits(scm: string): ReadonlyMap<string, RegExp> {
+  const declared = captureSettings(scm, "nameOmit");
+  return new Map([...declared].map(([capture, value]) => [capture, new RegExp(value, "u")]));
+}
+
+/** A .scm string's value: a backslash there escapes the next character. */
+const unescaped = (text: string): string => text.replace(/\\(.)/g, "$1");
+
+function captureSettings(scm: string, knob: string): ReadonlyMap<string, string> {
+  const settings = new Map<string, string>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null || match[2] !== knob || directive.value === undefined) continue;
+    settings.set(match[1]!, unescaped(directive.value));
+  }
+  return settings;
+}
+
 export function scmCaptureMerges(scm: string): ReadonlyMap<string, MergeMode> {
   const merges = new Map<string, MergeMode>();
   for (const directive of scmDirectives(scm)) {
@@ -301,16 +324,16 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * its row ends the run; `adjacent` - only another element ends it, so blank lines and comments ride
  * inside; `none` - every candidate is its own element), `naming` (a node one pattern matches
  * several times, each match with another name: `strict` fails the load, `first` keeps the first
- * name in the source).
+ * name in the source), `omit` (the capture whose nodes are left out of this one's text), `nameOmit`
+ * (the pattern left out of this one's name).
  */
 const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming)/;
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming|omit|nameOmit)/;
 const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
 export type MergeMode = (typeof MERGE_MODES)[number];
 const NAMING_MODES = ["strict", "first"] as const;
-const CAPTURE_KNOBS: Readonly<
-  Record<string, { shape: "boolean" | "number" | readonly string[]; summary: string }>
-> = {
+type KnobShape = "boolean" | "number" | "capture" | "regex" | readonly string[];
+const CAPTURE_KNOBS: Readonly<Record<string, { shape: KnobShape; summary: string }>> = {
   definition: {
     shape: "boolean",
     summary:
@@ -341,7 +364,49 @@ const CAPTURE_KNOBS: Readonly<
     summary:
       "Settles a node that one pattern matches several times with different names, such as `int i, j;`. `strict` fails the load, `first` keeps the name that comes first in the source. Default `strict`.",
   },
+  omit: {
+    shape: "capture",
+    summary:
+      "Leaves the nodes of another capture out of this one's text, such as the `>` of a quoted line. The span does not change. Default: nothing is left out.",
+  },
+  nameOmit: {
+    shape: "regex",
+    summary:
+      "Leaves what a regular expression matches out of this capture's names, such as the closing `##` of a heading. Default: nothing is left out.",
+  },
 };
+
+const KNOB_WANTS: Readonly<Record<Exclude<KnobShape, readonly string[]>, string>> = {
+  boolean: "true or false",
+  number: "a whole number",
+  capture: "a capture the queries emit",
+  regex: "a regular expression",
+};
+
+const knobWants = (shape: KnobShape): string =>
+  typeof shape === "string" ? KNOB_WANTS[shape] : `one of: ${shape.join(", ")}`;
+
+function knobAccepts(
+  shape: Exclude<KnobShape, "regex">,
+  value: string,
+  emitted: ReadonlySet<string>,
+): boolean {
+  if (typeof shape !== "string") return shape.includes(value);
+  if (shape === "boolean") return value === "true" || value === "false";
+  if (shape === "number") return /^\d+$/.test(value);
+  return emitted.has(value);
+}
+
+/** Throws with the reason when a knob cannot take the value. */
+function assertKnobValue(
+  shape: KnobShape,
+  value: string | undefined,
+  emitted: ReadonlySet<string>,
+): void {
+  if (value === undefined) throw new Error("the directive has no value");
+  if (shape === "regex") new RegExp(unescaped(value), "u");
+  else if (!knobAccepts(shape, value, emitted)) throw new Error(`"${value}" is not accepted`);
+}
 
 /** One row of the directive reference: the loader's vocabulary, as data. */
 export interface DirectiveRow {
@@ -362,8 +427,8 @@ export function directiveVocabulary(): readonly DirectiveRow[] {
     values:
       k.shape === "boolean"
         ? "true | false"
-        : k.shape === "number"
-          ? "a whole number"
+        : typeof k.shape === "string"
+          ? KNOB_WANTS[k.shape]
           : k.shape.join(" | "),
     summary: k.summary,
   }));
@@ -511,22 +576,13 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
         );
       }
       const shape = CAPTURE_KNOBS[knob]!.shape;
-      const ok =
-        shape === "boolean"
-          ? directive.value === "true" || directive.value === "false"
-          : shape === "number"
-            ? /^\d+$/.test(directive.value ?? "")
-            : shape.includes(directive.value ?? "");
-      if (!ok) {
-        const wants =
-          shape === "boolean"
-            ? "true or false"
-            : shape === "number"
-              ? "a whole number"
-              : `one of: ${shape.join(", ")}`;
+      try {
+        assertKnobValue(shape, directive.value, emitted);
+      } catch (cause) {
         throw new SetupError(
           "CONFIG_INVALID",
-          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" wants ${wants} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" wants ${knobWants(shape)} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+          { cause },
         );
       }
     } else {
@@ -964,13 +1020,23 @@ export function isEmptyComment(text: string): boolean {
   return !/[\p{L}\p{N}]/u.test(text);
 }
 
+/** A stretch of the source, by index. */
+export interface Stretch {
+  readonly start: number;
+  readonly end: number;
+}
+
 export function runQuery(
   query: Query,
   rootNode: QueryMatchSource,
   addressable: ReadonlySet<string> = DEFAULT_ADDRESSABLE,
+  /** Filled with the nodes of each capture it already names. */
+  collected: ReadonlyMap<string, Stretch[]> = new Map(),
 ): Candidate[] {
   const candidates: Candidate[] = [];
   for (const match of query.matches(rootNode as never)) {
+    for (const { name, node } of match.captures)
+      collected.get(name)?.push({ start: node.startIndex, end: node.endIndex });
     const candidate = candidateOf(match, addressable);
     if (candidate !== null) candidates.push(candidate);
   }

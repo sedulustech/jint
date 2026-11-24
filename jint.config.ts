@@ -17,9 +17,8 @@ import site from "./web/jint.config.ts";
 // own names for pick-and-override ({ ...is_greppable, include: ["src/**"], override: true } when the
 // name is already in the list).
 
-// is_literal_shared: calibrated in packages/app, promoted repo-wide - NOT into an official domain (the
-// two-language promotion bar in AGENTS.md has not been met). Markdown and lockfiles stay out:
-// prose and lock data are not code with values flowing between sites.
+// Markdown and lockfiles stay out: prose and lock data are not code with values flowing between
+// sites.
 const is_literal_shared: RuleSchema = {
   name: "is_literal_shared",
   kind: "score",
@@ -88,7 +87,7 @@ const is_headword_consistent: RuleSchema = {
 const has_extra_description: RuleSchema = {
   name: "has_extra_description",
   kind: "noul",
-  target: "markdown:section",
+  target: ["markdown:h3", "markdown:h4"],
   include: ["docs/reference/cli.md"],
   instructions:
     "This unit is one entry of a CLI reference page: a heading that names a verb, a noun or a flag, a description, and an example command. Besides naming what the item does, does the description say more than one short phrase?",

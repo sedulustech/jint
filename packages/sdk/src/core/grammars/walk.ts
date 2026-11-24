@@ -37,9 +37,12 @@ import {
   type Capture,
   type MergeMode,
   type QueryNode,
+  type Stretch,
   compileQuery,
   scmCaptureDeclarations,
   scmCaptureMerges,
+  scmCaptureOmits,
+  scmNameOmits,
   scmCapturePolicy,
   scmEmittedNames,
   scmFirstNameCaptures,
@@ -63,7 +66,10 @@ export type ElementCapture = Exclude<Capture, "docstring">;
 export type { Capture };
 export type { DocstringOwner } from "../types.ts";
 
-/** An inventory element; slicing the source by its span bytes yields its content exactly. */
+/**
+ * An inventory element. Slicing the source by its span yields its content, less what the grammar
+ * omits from the capture's text.
+ */
 export interface InventoryElement {
   /** The element's identity: one uuidv4 minted when the walk creates it, carried unchanged after. */
   readonly id: string;
@@ -701,10 +707,49 @@ function commentCandidates(
   return mergedComments([...new Set(texts)], candidates, source, merges.get("comment"));
 }
 
+/** What a grammar leaves out of its elements: nodes from a capture's text, a pattern from its names. */
+interface Omissions {
+  readonly texts: ReadonlyMap<string, OmittedStretches>;
+  readonly names: ReadonlyMap<string, RegExp>;
+}
+
+/** The stretches a capture's text leaves out, in source order, and where each starts. */
+interface OmittedStretches {
+  readonly stretches: readonly Stretch[];
+  readonly starts: readonly number[];
+}
+
+function omissionsOf(scm: string, collected: ReadonlyMap<string, readonly Stretch[]>): Omissions {
+  const texts = new Map<string, OmittedStretches>();
+  for (const [capture, omitted] of scmCaptureOmits(scm)) {
+    const stretches = [...(collected.get(omitted) ?? [])].sort((a, b) => a.start - b.start);
+    texts.set(capture, { stretches, starts: stretches.map((s) => s.start) });
+  }
+  return { texts, names: scmNameOmits(scm) };
+}
+
+function contentOf(d: Candidate, omitted: OmittedStretches | undefined, source: string): string {
+  if (omitted === undefined) return d.node.text;
+  const { startIndex, endIndex } = d.node;
+  let content = "";
+  let at = startIndex;
+  for (let i = countBelow(omitted.starts, startIndex, false); i < omitted.stretches.length; i++) {
+    const { start, end } = omitted.stretches[i]!;
+    if (start >= endIndex) break;
+    content += source.slice(at, start);
+    at = Math.min(end, endIndex);
+  }
+  return content + source.slice(at, endIndex);
+}
+
+const nameOf = (d: Candidate, omitted: RegExp | undefined): string | undefined =>
+  (omitted === undefined ? d.name : d.name?.replace(omitted, "")) || undefined;
+
 function definitionElement(
   d: Candidate,
   grammarId: string,
   source: string,
+  omissions: Omissions,
   structure: CommentStructure,
   labels: ReadonlyMap<Candidate, string>,
 ): InventoryElement {
@@ -712,11 +757,11 @@ function definitionElement(
     id: crypto.randomUUID(),
     label: labels.get(d)!,
     span: spanOf(d.node),
-    content: d.node.text,
+    content: contentOf(d, omissions.texts.get(d.capture), source),
     nodeType: d.node.type,
     capture: d.capture as ElementCapture,
     grammar: grammarId,
-    name: d.name,
+    name: nameOf(d, omissions.names.get(d.capture)),
     signature: signatureOf(d, source),
     attachedComment: structure.attachedRuns.get(d)?.map((c) => c.node.text),
     docstrings: structure.docstringTexts.get(d),
@@ -779,6 +824,7 @@ function materialize(
   source: string,
   definitionCaptures: ReadonlySet<string>,
   merges: ReadonlyMap<string, MergeMode>,
+  omissions: Omissions,
 ): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
@@ -791,7 +837,9 @@ function materialize(
   definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
   comments.forEach(({ first }, i) => labels.set(first, "c" + String(i)));
   return {
-    definitions: definitions.map((d) => definitionElement(d, grammarId, source, structure, labels)),
+    definitions: definitions.map((d) =>
+      definitionElement(d, grammarId, source, omissions, structure, labels),
+    ),
     comments: comments.map((c) => commentElement(c, grammarId, definitions, structure, labels)),
     imports: importElements(candidates, grammarId, source, merges),
   };
@@ -825,8 +873,10 @@ export async function decompose(
   // a tree lives in the parser's wasm memory, which one process shares and which holds at most
   // 2 GiB: every tree is freed once its elements are read, or a large run aborts the wasm instance
   try {
+    const collected = new Map<string, Stretch[]>();
+    for (const omitted of scmCaptureOmits(scm).values()) collected.set(omitted, []);
     const candidates = resolveCandidates(
-      runQuery(query, tree.rootNode, resolveAddressable(scm)),
+      runQuery(query, tree.rootNode, resolveAddressable(scm), collected),
       resolveSuppression(scm),
     );
     const definitionCaptures = resolveDefinitionCaptures(scm);
@@ -836,6 +886,7 @@ export async function decompose(
       source,
       definitionCaptures,
       scmCaptureMerges(scm),
+      omissionsOf(scm, collected),
     );
     return {
       hasError: tree.rootNode.hasError,

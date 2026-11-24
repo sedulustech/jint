@@ -72,7 +72,16 @@ const PINNED: Readonly<
   css: { ext: "css", definitions: {}, comments: { comment: 2 }, imports: {} },
   markdown: {
     ext: "md",
-    definitions: { section: 2, paragraph: 4, list_item: 2, list: 1 },
+    definitions: {
+      h1: 1,
+      h2: 1,
+      heading: 2,
+      paragraph: 4,
+      code_block: 1,
+      code: 1,
+      list_item: 2,
+      list: 1,
+    },
     comments: {},
     imports: {},
   },
