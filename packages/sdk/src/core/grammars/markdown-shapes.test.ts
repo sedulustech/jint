@@ -71,8 +71,8 @@ const INVENTORY: readonly Row[] = [
   { kind: "code", start: [32, 0], end: [33, 0], parent: "d20" },
   // the pipe table: ONE element, header + delimiter row + body, ending where the next block starts
   { kind: "table", start: [35, 0], end: [38, 0], parent: "d5" },
-  // blockquotes: the paragraph inside captures, FIRST "> " marker stripped (col 2) - a
-  // continuation line's "> " stays in the TEXT (only the opening marker belongs to the wrapper)
+  // blockquotes: the paragraph inside captures, its span starts after the first "> " (col 2), and
+  // its text leaves out the "> " of every other line
   { kind: "paragraph", start: [41, 2], end: [42, 0], parent: "d5" },
   { kind: "paragraph", start: [43, 2], end: [45, 0], parent: "d5" },
   // inline code spans ride the paragraph text verbatim (backticks kept, no inline elements)
@@ -170,10 +170,10 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     expect(inner.parent).toBe("d10");
   });
 
-  test("a blockquote strips only the opening marker; later markers stay in the text", () => {
+  test("a blockquote strips every line's marker", () => {
     const quoted = captured.find((e) => e.span.start.line === 43)!;
     expect(quoted.text.startsWith("Multi-line quote that wraps")).toBe(true);
-    expect(quoted.text).toContain("\n> across two lines.");
+    expect(quoted.text).toContain("\nacross two lines.");
   });
 
   test("inline code spans ride the paragraph text verbatim", () => {

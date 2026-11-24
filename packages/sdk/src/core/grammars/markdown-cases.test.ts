@@ -138,6 +138,10 @@ describe("an element's text", () => {
     expect(textOf(elements, "code")).toBe("x\n  y\n");
   });
 
+  test("a quoted paragraph has no quote markers", async () => {
+    expect(textOf(await elementsOf("> one\n> two\n"), "paragraph")).toBe("one\ntwo\n");
+  });
+
   test("a section is its source as written, markers included", async () => {
     const source = "# A\n\n> one\n> two\n";
     expect(textOf(await elementsOf(source), "h1")).toBe(source);

@@ -88,7 +88,7 @@
 ; PROSE, loose: paragraphs NOT inside a list entry. Parents are enumerated honestly (the grammar
 ; allows paragraph under section, list_item, block_quote): the list_item parent is claimed above,
 ; so loose prose is the section-direct and quoted forms - the loose-in-list stretch is gone.
-(section (paragraph) @paragraph (#set! "capture.paragraph.definition" "true")) ; @priority
+(section (paragraph) @paragraph (#set! "capture.paragraph.definition" "true") (#set! "capture.paragraph.omit" "continuation")) ; @priority
 (block_quote (paragraph) @paragraph)
 
 ; code: code_block is a whole fence, code the text inside it. An indented block has no fence, so it
