@@ -12,8 +12,8 @@ describe("decompose — markdown", () => {
 
   test("sections capture with their heading text and nest inside each other", async () => {
     const inv = await decompose("# A\n\ntext\n\n## B\n\nmore\n\n# C\n\ntail\n", "markdown");
-    const sections = inv.definitions.filter((d) => /^h[1-6]$/.test(d.capture));
-    expect(sections.map((d) => d.capture)).toEqual(["h1", "h2", "h1"]);
+    const sections = inv.definitions.filter((d) => d.capture.endsWith(".section"));
+    expect(sections.map((d) => d.capture)).toEqual(["h1.section", "h2.section", "h1.section"]);
     expect(sections.map((d) => [d.name, d.parent])).toEqual([
       ["A", undefined],
       ["B", "d0"],
@@ -48,7 +48,7 @@ describe("decompose — markdown", () => {
       new URL("../../../../../tests/fixtures/parity/README.md", import.meta.url),
     ).text();
     const inv = await decompose(md, "markdown");
-    const sections = inv.definitions.filter((d) => /^h[1-6]$/.test(d.capture));
+    const sections = inv.definitions.filter((d) => d.capture.endsWith(".section"));
     expect(sections).toHaveLength(13);
     const last = sections.at(-1)!;
     expect(last.name).toContain("Dogfood parity");

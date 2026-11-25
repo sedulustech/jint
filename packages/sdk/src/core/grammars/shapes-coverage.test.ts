@@ -61,7 +61,7 @@ function withoutComments(scm: string): string {
 function declaredKinds(language: string): Set<string> {
   const scm = withoutComments(readFileSync(GRAMMARS + language + "/queries.scm", "utf8"));
   const kinds = new Set<string>();
-  for (const match of scm.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)) {
+  for (const match of scm.matchAll(/@([A-Za-z_][A-Za-z0-9_.-]*)/g)) {
     const capture = match[1] ?? "";
     // a capture declared no element (definition "false") has no row to pin
     if (scm.includes(`"capture.${capture}.definition" "false"`)) continue;
@@ -87,7 +87,7 @@ function inventoryKinds(language: string): Set<string> {
     const end = source.indexOf("\n];", start);
     for (const m of source
       .slice(start, end)
-      .matchAll(/^(?: {2}\{ (?:id: "[^"]*", )?| {4})kind: "(\w+)"/gm)) {
+      .matchAll(/^(?: {2}\{ (?:id: "[^"]*", )?| {4})kind: "([\w.]+)"/gm)) {
       kinds.add(m[1] ?? "");
     }
   }

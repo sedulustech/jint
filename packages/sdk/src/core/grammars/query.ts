@@ -6,7 +6,8 @@
  * Capture vocabulary (frozen for v1; a capture name is an identity, never a label):
  *
  * @function @method @class @type @binding @comment @import - what one element IS (singular) import
- *   { SHARED_LANES } from "./shared.ts";
+ *   { SHARED_LANES } from "./shared.ts"; import { CAPTURE_ADDRESS, CAPTURE_NAME } from
+ *   "./capture-address.ts";
  * @name - the element's declared name (render-only; never an identity)
  *
  * Policy shipped with the typescript port (design: grammar-loading, evidence-first):
@@ -31,6 +32,7 @@
  */
 
 import { RULE_TARGETS } from "@jint/contract";
+import { CAPTURE_ADDRESS, CAPTURE_NAME } from "./capture-address.ts";
 import {
   isSharedCapture,
   SHARED_ELEMENT_CAPTURES,
@@ -138,6 +140,14 @@ export function scmFirstNameCaptures(scm: string): ReadonlySet<string> {
     first.add(match[1]!);
   }
   return first;
+}
+
+export function scmSharesSpanCaptures(scm: string): ReadonlySet<string> {
+  return new Set(
+    [...captureSettings(scm, "sharesSpan")]
+      .filter(([, value]) => value === "true")
+      .map(([capture]) => capture),
+  );
 }
 
 /** Captures whose same-capture candidates nest legitimately (per-capture selfNesting). */
@@ -350,10 +360,12 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * name in the source), `omit` (the capture whose nodes are left out of this one's text), `nameOmit`
  * (the pattern left out of this one's name), `keyOmit` and `valueOmit` (the same for its key and
  * its value), `injection` (the language its text is written in), `ownsComments` (whether the
- * comments in and above it are its).
+ * comments in and above it are its), `sharesSpan` (another capture's node with its span is an
+ * element inside it).
  */
-const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming|omit|nameOmit|keyOmit|valueOmit|injection|ownsComments)/;
+const CAPTURE_DIRECTIVE = new RegExp(
+  `capture\\.(${CAPTURE_NAME})\\.(definition|leaf|selfNesting|absorbTail|merge|naming|omit|nameOmit|keyOmit|valueOmit|injection|ownsComments|sharesSpan)`,
+);
 const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
 export type MergeMode = (typeof MERGE_MODES)[number];
 const NAMING_MODES = ["strict", "first"] as const;
@@ -413,6 +425,11 @@ const CAPTURE_KNOBS: Readonly<Record<string, { shape: KnobShape; summary: string
     shape: "language",
     summary:
       "Parses this capture's text with another grammar, and captures what that grammar's queries find in it. Default: the text is not parsed again.",
+  },
+  sharesSpan: {
+    shape: "boolean",
+    summary:
+      "Keeps an element of another capture that has the same span, inside this one, such as the heading line of a section with nothing under it. Default false: one span is one element.",
   },
   ownsComments: {
     shape: "boolean",
@@ -966,6 +983,19 @@ function contains(outer: Candidate, inner: Candidate): boolean {
   );
 }
 
+/** One element per span, and one more when its capture shares it. */
+function spanKey({ node, capture }: Candidate, options: SuppressionOptions): string {
+  const span = `${node.startIndex}:${node.endIndex}`;
+  return options.sharesSpanCaptures.has(capture) ? `${span}:${capture}` : span;
+}
+
+const outermostFirst =
+  ({ sharesSpanCaptures }: SuppressionOptions) =>
+  (a: Candidate, b: Candidate): number =>
+    a.node.startIndex - b.node.startIndex ||
+    b.node.endIndex - a.node.endIndex ||
+    Number(sharesSpanCaptures.has(b.capture)) - Number(sharesSpanCaptures.has(a.capture));
+
 /**
  * Resolve candidate conflicts, in order: same-node double capture resolves by PATTERN ORDER (the
  * earlier .scm pattern wins - the callable-initializer refinement depends on it); then the
@@ -975,6 +1005,7 @@ function contains(outer: Candidate, inner: Candidate): boolean {
 const NO_SUPPRESSION: SuppressionOptions = {
   shapes: new Map(),
   selfNestingCaptures: new Set(),
+  sharesSpanCaptures: new Set(),
   firstNameCaptures: new Set(),
 };
 
@@ -982,10 +1013,10 @@ export function resolveCandidates(
   candidates: readonly Candidate[],
   options: SuppressionOptions = NO_SUPPRESSION,
 ): Candidate[] {
-  const byNode = new Map<string, Candidate>();
+  const candidateBySpan = new Map<string, Candidate>();
   for (const candidate of candidates) {
-    const key = candidate.node.startIndex + ":" + candidate.node.endIndex;
-    const existing = byNode.get(key);
+    const span = spanKey(candidate, options);
+    const existing = candidateBySpan.get(span);
     // THE CONTAINER-BINDING TRAP, the multi-match half: a container pattern like
     // (enum_body (property_identifier) @name) @binding matches ONCE PER member - each match
     // carries a different member's @name onto the SAME node. One element carries one name; the
@@ -1010,28 +1041,26 @@ export function resolveCandidates(
     const earlierName =
       renamed && (candidate.nameIndex ?? Infinity) < (existing!.nameIndex ?? Infinity);
     if (existing === undefined || candidate.pattern < existing.pattern || earlierName)
-      byNode.set(key, candidate);
+      candidateBySpan.set(span, candidate);
   }
-  const ordered = [...byNode.values()].sort(
-    (a, b) => a.node.startIndex - b.node.startIndex || b.node.endIndex - a.node.endIndex,
-  );
+  const ordered = [...candidateBySpan.values()].sort(outermostFirst(options));
   const kept: Candidate[] = [];
   // Candidates arrive by start, so a kept one that ended before this start contains nothing from
   // here on: only the kept candidates still open at the cursor are asked.
-  const open: Candidate[] = [];
+  const openOuters: Candidate[] = [];
   for (const candidate of ordered) {
     const start = candidate.node.startIndex;
     let swallowed = false;
-    let live = 0;
-    for (const outer of open) {
+    let openCount = 0;
+    for (const outer of openOuters) {
       if (outer.node.endIndex < start) continue;
-      open[live++] = outer;
+      openOuters[openCount++] = outer;
       if (!swallowed && hides(outer, candidate, options)) swallowed = true;
     }
-    open.length = live;
+    openOuters.length = openCount;
     if (swallowed) continue;
     kept.push(candidate);
-    open.push(candidate);
+    openOuters.push(candidate);
   }
   return kept;
 }
@@ -1042,6 +1071,8 @@ export interface SuppressionOptions {
   readonly shapes: ReadonlyMap<string, SuppressionShape>;
   /** Captures whose same-capture candidates nest legitimately. */
   readonly selfNestingCaptures: ReadonlySet<string>;
+  /** Captures that hold an element of another capture whose span is their own. */
+  readonly sharesSpanCaptures: ReadonlySet<string>;
   /** Captures whose node keeps its first name when one pattern matches it with several. */
   readonly firstNameCaptures: ReadonlySet<string>;
 }
@@ -1054,7 +1085,7 @@ function nestsOf(options: SuppressionOptions, capture: string): boolean {
   return options.selfNestingCaptures.has(capture);
 }
 
-export const CAPTURE_TOKEN = /@([A-Za-z_][A-Za-z0-9_-]*)/g;
+export const CAPTURE_TOKEN = new RegExp(`@(${CAPTURE_NAME})`, "g");
 /** Does the outer candidate hide the inner one? (policy table + .scm #set! facts; ordered) */
 function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions): boolean {
   // lane captures travel intact: the materializer counts them internal and keeps runs whole
@@ -1128,7 +1159,6 @@ export function emittedCaptures(registry: GrammarRegistry, grammarId: string): r
     )
     .sort();
 }
-const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 
 const SHARED_TARGETS: ReadonlySet<string> = new Set(RULE_TARGETS);
 
@@ -1143,7 +1173,7 @@ const SHARED_TARGETS: ReadonlySet<string> = new Set(RULE_TARGETS);
  * before anything is measured, the same way a config error does.
  */
 export function assertCaptureAddress(target: string, registry: GrammarRegistry): void {
-  const match = target.match(QUALIFIED_ADDRESS);
+  const match = target.match(CAPTURE_ADDRESS);
   if (match === null) {
     if (SHARED_TARGETS.has(target)) return;
     throw new SetupError(

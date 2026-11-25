@@ -44,6 +44,8 @@ Run it before you calibrate a rule. A rule cannot find a defect in code that no 
 - **A grammar's own captures** belong to one grammar, such as `markdown:paragraph`. A rule targets
   them as `{grammar}:{capture}`.
 
+A capture's name can have a dot: `markdown:h2.section` is the section of an `h2`.
+
 ## Add a capture
 
 One pattern and one directive make a new element. This one captures the top-level loops and

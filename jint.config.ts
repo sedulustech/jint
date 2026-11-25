@@ -35,10 +35,10 @@ const is_literal_shared: RuleSchema = {
   handle: { map: ["pass", "pass", "warn", "error"] },
 };
 
-const is_doc_stateful: RuleSchema = {
+const is_doc_stateful: CustomRule = {
   name: "is_doc_stateful",
-  kind: "noul",
   target: "markdown:list_item",
+  state: (entry) => ({ source: entry.getElement("markdown:paragraph").source }),
   instructions:
     "This unit is one definition in a project glossary (one list entry). Does this definition depend on when or where it is read, or on facts about the system that a code change can alter?",
   criteria: {
@@ -84,7 +84,7 @@ const is_headword_consistent: RuleSchema = {
 
 const has_extra_description: CustomRule = {
   name: "has_extra_description",
-  target: ["markdown:h3", "markdown:h4"],
+  target: ["markdown:h3.section", "markdown:h4.section"],
   include: ["docs/reference/cli.md"],
   state: (entry) => ({
     heading: entry.name,

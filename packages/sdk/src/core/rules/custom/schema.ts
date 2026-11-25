@@ -8,6 +8,7 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { CAPTURE_ADDRESS } from "../../grammars/capture-address.ts";
 import { checkRuleScope } from "../../scope.ts";
 import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler, CONDITION_SCHEMA, NOUL_HANDLER_SCHEMA } from "../handle.ts";
@@ -265,10 +266,9 @@ function isRole(t: unknown): boolean {
 // THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
 // autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
 // themselves are validated at lint startup against the merged registry - this check is shape-only.
-const QUALIFIED_ADDRESS = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
 
 function isTargetable(t: unknown): boolean {
-  return typeof t === "string" && (isRole(t) || QUALIFIED_ADDRESS.test(t));
+  return typeof t === "string" && (isRole(t) || CAPTURE_ADDRESS.test(t));
 }
 
 function validTarget(target: CustomRule["target"]): boolean {

@@ -58,6 +58,7 @@ import {
   scmEmittedNames,
   scmFirstNameCaptures,
   scmSelfNestingCaptures,
+  scmSharesSpanCaptures,
   type SuppressionOptions,
   type SuppressionShape,
   scmSelfNesting,
@@ -231,7 +232,12 @@ function resolveSuppression(scm: string): SuppressionOptions {
   const selfNestingCaptures = new Set<string>(scmSelfNestingCaptures(scm));
   if (scmSelfNesting(scm))
     for (const capture of scmEmittedNames(scm)) selfNestingCaptures.add(capture);
-  return { shapes, selfNestingCaptures, firstNameCaptures: scmFirstNameCaptures(scm) };
+  return {
+    shapes,
+    selfNestingCaptures,
+    sharesSpanCaptures: scmSharesSpanCaptures(scm),
+    firstNameCaptures: scmFirstNameCaptures(scm),
+  };
 }
 
 function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
@@ -291,6 +297,11 @@ function enclosuresOf(
 ): Enclosures {
   const byStart = (a: Candidate, b: Candidate) => a.node.startIndex - b.node.startIndex;
   const sweep = [...definitions].sort(byStart);
+  const order = new Map(sweep.map((definition, at) => [definition, at]));
+  // of two definitions with one span, the first encloses the second
+  const encloses = (outer: Candidate, inner: Candidate): boolean =>
+    containsSpan(outer, inner) &&
+    !(containsSpan(inner, outer) && order.get(outer)! > (order.get(inner) ?? Infinity));
   const enclosures = new Map<Candidate, readonly Candidate[]>();
   const open: Candidate[] = [];
   let next = 0;
@@ -303,7 +314,7 @@ function enclosuresOf(
     open.length = live;
     enclosures.set(
       query,
-      open.filter((definition) => containsSpan(definition, query)),
+      open.filter((definition) => encloses(definition, query)),
     );
   }
   return enclosures;
@@ -661,16 +672,20 @@ function definitionCandidates(
   definitionCaptures: ReadonlySet<string>,
   merges: ReadonlyMap<string, MergeMode>,
 ): Candidate[] {
-  const definitions: Candidate[] = [];
+  // the candidates come outermost first, also where two share a span
+  const position = new Map(candidates.map((candidate, at) => [candidate, at]));
+  const definitions: { readonly definition: Candidate; readonly at: number }[] = [];
   for (const capture of definitionCaptures) {
     const members = candidates.filter((c) => c.capture === capture);
     const mode = merges.get(capture);
-    if (mode === undefined) definitions.push(...members);
-    else
-      for (const run of mergeRuns(members, candidates, source, mode))
-        definitions.push(runCandidate(run, source));
+    const runs =
+      mode === undefined
+        ? members.map((member) => [member])
+        : mergeRuns(members, candidates, source, mode);
+    for (const run of runs)
+      definitions.push({ definition: runCandidate(run, source), at: position.get(run[0]!)! });
   }
-  return definitions.sort((a, b) => a.node.startIndex - b.node.startIndex);
+  return definitions.sort((a, b) => a.at - b.at).map(({ definition }) => definition);
 }
 
 /** Which comments and docstrings belong to which definition, and how each definition encloses. */

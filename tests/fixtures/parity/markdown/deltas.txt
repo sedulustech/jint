@@ -1,9 +1,9 @@
 # Documented parity deltas: markdown (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
-NEW h2 Configuration L5.0-L23.0
-NEW h1 Getting started L1.0-L23.0
-NEW heading - L1.0-L2.0
-NEW heading - L5.0-L6.0
+NEW h2 Configuration L5.0-L6.0
+NEW h1 Getting started L1.0-L2.0
+NEW h1.section Getting started L1.0-L23.0
+NEW h2.section Configuration L5.0-L23.0
 NEW code_block - L9.0-L12.0
 NEW code - L10.0-L11.0
 NEW paragraph - L3.0-L4.0
@@ -13,6 +13,8 @@ NEW paragraph - L18.0-L19.0
 REF function - L9.0-L12.0
 REF type - L1.0-L22.7
 REF type - L5.0-L22.7
-NEW list_item - L15.2-L16.0
-NEW list_item - L16.2-L17.0
+NEW list_item - L15.0-L16.0
+NEW list_item - L16.0-L18.0
+NEW paragraph - L15.2-L16.0
+NEW paragraph - L16.2-L17.0
 NEW list - L15.0-L18.0

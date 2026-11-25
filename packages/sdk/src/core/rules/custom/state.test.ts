@@ -52,14 +52,14 @@ async function statesOf(
 }
 
 const example = (entry: CustomElement): string | undefined =>
-  entry.getElements("markdown:code_block")[0]?.getElements("markdown:code")[0]?.source;
+  entry.parent?.getElements("markdown:code_block")[0]?.getElements("markdown:code")[0]?.source;
 
 describe("a rule's state function", () => {
   test("composes from the parent, the name and the elements inside", async () => {
     const { states } = await statesOf(
       {
         target: "markdown:h4",
-        state: (h4) => ({ command: h4.parent?.name, flag: h4.name, example: example(h4) }),
+        state: (h4) => ({ command: h4.parent?.parent?.name, flag: h4.name, example: example(h4) }),
       },
       CLI,
     );
@@ -104,8 +104,8 @@ describe("a rule's state function", () => {
       {
         target: "markdown:h4",
         state: (h4) => {
-          for (const child of h4.getElements()) expect(child.parent).toBe(h4);
           expect(h4.parent!.getElements()).toContain(h4);
+          for (const child of h4.parent!.getElements()) expect(child.parent).toBe(h4.parent);
           return {};
         },
       },
@@ -121,7 +121,7 @@ describe("a rule's state function", () => {
         target: "markdown:h1",
         state: (h1) => ({
           title: h1.file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
-          sections: h1.getElements("markdown:h2").map((h2) => h2.name),
+          sections: h1.parent!.getElements("markdown:h2.section").map((section) => section.name),
         }),
       },
       PAGE,
@@ -206,7 +206,8 @@ describe("a rule's state function", () => {
         state: (file) => ({
           same: file === file.file,
           title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
-          sections: file.getElement("markdown:h1").getElements("markdown:h2").length,
+          sections: file.getElement("markdown:h1.section").getElements("markdown:h2.section")
+            .length,
         }),
       },
       PAGE,
@@ -239,14 +240,14 @@ describe("a rule's state function", () => {
   });
 
   test.each([
-    ["markdown:table", undefined, 'the h1 "A" has no markdown:table'],
-    ["markdown:h2", "D", 'the h1 "A" has no markdown:h2 named "D"'],
-    ["markdown:h2", undefined, 'the h1 "A" has 2 markdown:h2'],
-    ["files", undefined, 'the h1 "A" holds elements, and a file is not one of them'],
+    ["markdown:table", undefined, 'the h1.section "A" has no markdown:table'],
+    ["markdown:h2.section", "D", 'the h1.section "A" has no markdown:h2.section named "D"'],
+    ["markdown:h2.section", undefined, 'the h1.section "A" has 2 markdown:h2.section'],
+    ["files", undefined, 'the h1.section "A" holds elements, and a file is not one of them'],
     ["markdown:h22", undefined, 'does not emit "h22"'],
   ])("element %p %p throws", async (target, name, message) => {
     const { errors } = await statesOf(
-      { target: "markdown:h1", state: (h1) => ({ e: h1.getElement(target, name) }) },
+      { target: "markdown:h1", state: (h1) => ({ e: h1.parent!.getElement(target, name) }) },
       PAGE,
     );
     expect(errors).toHaveLength(1);
