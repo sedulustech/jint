@@ -15,7 +15,7 @@ const GRAMMARS = new URL("./embedded/", import.meta.url).pathname;
 const HERE = new URL("./", import.meta.url).pathname;
 
 // role and marker captures name parts of an element or order patterns; they are never elements
-const ROLE_CAPTURES: ReadonlySet<string> = new Set(["name", "body", "priority"]);
+const ROLE_CAPTURES: ReadonlySet<string> = new Set(["name", "key", "value", "body", "priority"]);
 
 // a docstring is projected as a comment element (shared.ts SHARED_PROJECTION)
 const KIND_OF: Readonly<Record<string, string>> = { docstring: "comment" };
@@ -70,6 +70,13 @@ function declaredKinds(language: string): Set<string> {
   return kinds;
 }
 
+/** The kinds a file of the language can hold: its grammar's, and those of the grammars it injects. */
+function kindsInside(language: string): Set<string> {
+  const scm = withoutComments(readFileSync(GRAMMARS + language + "/queries.scm", "utf8"));
+  const injected = [...scm.matchAll(/"capture\.\w+\.injection" "(\w+)"/g)].map((m) => m[1]!);
+  return new Set([language, ...injected].flatMap((id) => [...declaredKinds(id)]));
+}
+
 /** The kinds of the intended rows in a language's INVENTORY tables (a row's own `kind:` line). */
 function inventoryKinds(language: string): Set<string> {
   const files = INVENTORY_FILES[language] ?? [language + "-shapes.test.ts"];
@@ -118,7 +125,7 @@ describe("shape corpora cover every element capture of every grammar", () => {
     });
 
     test(language + ": no inventory row names a kind the grammar no longer emits", () => {
-      const declared = declaredKinds(language);
+      const declared = kindsInside(language);
       expect(
         [...inventoryKinds(language)].filter((kind) => !declared.has(kind)).sort(),
         language + ": rows with no capture",

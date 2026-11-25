@@ -4,7 +4,8 @@ import { rules as errors } from "jint:rules/errors";
 import { rules as naming } from "jint:rules/naming";
 import { rules as reactHooks } from "jint:rules/react/hooks";
 import { has_sensitive_value } from "jint:rules/security";
-import { defineConfig, type RuleSchema } from "jint:sdk";
+import { defineConfig, type CustomRule, type RuleSchema } from "jint:sdk";
+import { no_programmatic_capture } from "./no-programmatic-capture.jint.ts";
 import { rules as skillDescriptions } from "./skills/descriptions.jint.ts";
 import { rules as writingRulesSkill } from "./skills/writing-rules.jint.ts";
 import { rules as unitTests } from "./tests/unit-tests.jint.ts";
@@ -81,14 +82,21 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
-// The CLI reference: each verb, noun and flag is a section with its own heading, so the model reads
-// one entry whole. Entries in the reference's style read at most 0.10, entries with long
-// descriptions 0.71 and above.
-const has_extra_description: RuleSchema = {
+const has_extra_description: CustomRule = {
   name: "has_extra_description",
-  kind: "noul",
   target: ["markdown:h3", "markdown:h4"],
   include: ["docs/reference/cli.md"],
+  state: (entry) => ({
+    heading: entry.name,
+    description: entry
+      .getElements("markdown:paragraph")
+      .map((paragraph) => paragraph.source.trim())
+      .join("\n\n"),
+    example: entry
+      .getElements("markdown:code_block")[0]
+      ?.getElements("markdown:code")[0]
+      ?.source.trim(),
+  }),
   instructions:
     "This unit is one entry of a CLI reference page: a heading that names a verb, a noun or a flag, a description, and an example command. Besides naming what the item does, does the description say more than one short phrase?",
   criteria: {
@@ -220,6 +228,7 @@ export default defineConfig({
       is_doc_stateful,
       is_headword_consistent,
       has_extra_description,
+      no_programmatic_capture,
       is_named_by_transport,
       // the site's rules, each scoped to the files it reads where the site declares them
       ...(site.rules.use as RuleSchema[]),

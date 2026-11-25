@@ -19,8 +19,6 @@ const types: readonly unknown[] = [
   // @ts-expect-error
   refused satisfies dx.CustomFile,
   // @ts-expect-error
-  refused satisfies dx.ClassifyContext,
-  // @ts-expect-error
   refused satisfies dx.StateSchema,
   // @ts-expect-error
   refused satisfies dx.CustomHandleData,
@@ -43,5 +41,5 @@ const types: readonly unknown[] = [
 ];
 
 test("every jint:sdk type resolves", () => {
-  expect(types).toHaveLength(14);
+  expect(types).toHaveLength(13);
 });

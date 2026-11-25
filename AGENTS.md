@@ -30,6 +30,9 @@ promoting a word into the shared tier is the only ceremony; a grammar's own capt
 table appears anywhere else, and tests/capture-directives-e2e.test.ts keeps the open path
 proven - edit a .scm before you edit the engine.
 
+A capture is named after the grammar's node, without the words that describe its syntax. A name of
+our own is for a capture that groups nodes, or when the node's name says nothing about what it is.
+
 ## UI
 
 Styles are declared at the component (Tailwind, shadcn): declaration, behavior, and state live

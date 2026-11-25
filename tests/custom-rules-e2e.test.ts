@@ -32,10 +32,10 @@ export default defineConfig({
   rules: { use: [{
     name: "will_ts_rule_fire",
     target: "comments",
-    classify: (self, ctx) => ({
+    classify: (target) => ({
       instructions: "Judge the comment.",
       criteria: { true: "t", false: "f" },
-      state: { comment: self.source, targets: ctx.targets.length, composed: { free: true } },
+      state: { comment: target.source, file: target.file.path, composed: { free: true } },
     }),
     handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
   }] },
@@ -189,9 +189,9 @@ describe("cli: custom rules end-to-end", () => {
     for (const file of files) expect(file).toMatch(/-elements-fixture\.ts\.json$/);
     const captures = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
     const stateOf = (c: any) => c.request.input[0].content[0].data;
-    // The composed state reached the request body verbatim (the frame sees the resolved count of 1).
+    // The composed state reached the request body verbatim.
     for (const capture of captures) {
-      expect(stateOf(capture).targets).toBe(1);
+      expect(stateOf(capture).file).toBe("fixture.ts");
       expect(stateOf(capture).composed).toEqual({ free: true });
     }
     const sources = captures.map((c) => stateOf(c).comment).sort();

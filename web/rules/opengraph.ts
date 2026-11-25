@@ -15,21 +15,6 @@ import type { RuleSchema } from "jint:sdk";
 const NOT_APPLICABLE =
   "This file sets no page title, description or social image, so there is nothing to judge.";
 
-export const has_call_to_action: RuleSchema = {
-  name: "has_call_to_action",
-  instructions:
-    "Does the page's description or title tell the reader what to do or what they get next, beyond naming the product?",
-  criteria: {
-    true: `${NOT_APPLICABLE} Otherwise the description or title invites an action or names an outcome the reader can expect: install it, read the guide, try it, get something specific.`,
-    false:
-      "The description or title only names or characterizes the product (a tagline, a category label) and gives the reader no action to take and no outcome to expect.",
-  },
-  target: "files",
-  handle: {
-    warn: { less_than: 0.6, message: "Say what the reader can do or get in the description." },
-  },
-};
-
 /**
  * Measured on this site's pages, with a planted control for each defect (one mechanical edit of a
  * real page): the three healthy readings are 0.56 (the download page), 0.66 and 0.76; the two
@@ -37,7 +22,7 @@ export const has_call_to_action: RuleSchema = {
  * one-line description). The threshold sits in that gap. Three pages of one layout: not proven
  * elsewhere.
  */
-export const is_description_complete: RuleSchema = {
+export const is_description_complete = {
   name: "is_description_complete",
   instructions:
     "Complete means the description answers two questions: what the page is, and what the reader gets from it. Judge the description alone, not the title. Does the description answer both, in a sentence or two?",
@@ -53,7 +38,7 @@ export const is_description_complete: RuleSchema = {
       message: "Write a description that says what the page is and what the reader gets.",
     },
   },
-};
+} satisfies RuleSchema;
 
 /**
  * Measured as is_description_complete is: the healthy readings are 0.99 and 1.00 (the download
@@ -88,7 +73,6 @@ export const has_image_alt_text: RuleSchema = {
 };
 
 export const rules: readonly RuleSchema[] = [
-  has_call_to_action,
   is_description_complete,
   is_title_informative,
   has_image_alt_text,

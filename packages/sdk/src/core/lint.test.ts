@@ -19,6 +19,7 @@ import {
   type LintEvent,
   type Rule,
 } from "./types.ts";
+import type { CustomElement } from "./rules/custom/schema.ts";
 
 /**
  * Synthetic rule data, one per kind: schema-shaped entries the engine tests compose from. The
@@ -1311,7 +1312,7 @@ describe("lint", () => {
       rmSync(file, { force: true });
     }
   });
-  test("a TS custom rule's classify reads the judged element's file through ctx.file", async () => {
+  test("a TS custom rule's classify reads the judged element's file", async () => {
     mkdirSync("tmp", { recursive: true });
     const file = "tmp/lint-ts-ctx-file-test.ts";
     const text =
@@ -1321,16 +1322,13 @@ describe("lint", () => {
       const headerRule = {
         name: "custom_header",
         target: "loose-comments",
-        classify: (
-          self: { source: string },
-          ctx: { file: { source: string; definitions: readonly { source: string }[] } },
-        ) => ({
+        classify: (target: CustomElement) => ({
           instructions: "i",
           criteria: { true: "t", false: "f" },
           state: {
-            header: self.source,
-            file: ctx.file.source,
-            outline: ctx.file.definitions.map((d) => d.source),
+            header: target.source,
+            file: target.file.source,
+            outline: target.file.definitions.map((d) => d.source),
           },
         }),
         handle: { warn: { greater_than: 0.9 } },

@@ -103,6 +103,7 @@ function pickElements(
  */
 export async function selectedElements(selection: EchoSelection): Promise<SelectedElement[]> {
   const unit: Unit = await fileUnit(selection.path);
+  const { nameOrKey } = await import("../grammars/walk.ts");
   const { walkUnit } = await import("../rules/classify.ts");
   const inventory: InventoryElement[] = (await walkUnit(unit)).inventory;
   if (inventory.length === 0) return [];
@@ -111,7 +112,7 @@ export async function selectedElements(selection: EchoSelection): Promise<Select
     id: spanLabel(e.span),
     path: selection.path,
     kind: e.capture,
-    name: e.name,
+    name: nameOrKey(e),
     spanStart: e.span.start.line,
     spanEnd: e.span.end.line,
     content: e.content,

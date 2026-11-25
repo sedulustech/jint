@@ -41,6 +41,15 @@ language unchanged. Anything else is your own capture, which needs one directive
 (comment) @comment
 ```
 
+When a node holds text in another language, name its grammar, and that grammar's captures apply inside
+it. The Markdown grammar reads front matter this way:
+
+```scheme
+((minus_metadata) @frontmatter
+  (#set! "capture.frontmatter.definition" "true")
+  (#set! "capture.frontmatter.injection" "yaml"))
+```
+
 Check what it captures:
 
 ```bash

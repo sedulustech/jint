@@ -26,14 +26,15 @@ describe("markdown frontmatter", () => {
 // completeness guard (shapes-coverage.test.ts) reads.
 const INVENTORY: readonly Row[] = [
   // the fenced block is one element, closing fence included, ending where the next row starts
-  { kind: "frontmatter", start: [1, 0], end: [5, 0] },
+  { id: "front", kind: "frontmatter", start: [1, 0], end: [5, 0] },
+  { kind: "pair", start: [2, 0], end: [2, 14], name: "title", parent: "front" },
+  { kind: "pair", start: [3, 0], end: [3, 41], name: "description", parent: "front" },
   { id: "install", kind: "h1", start: [6, 0], end: [9, 0], name: "Install" },
   { kind: "heading", start: [6, 0], end: [7, 0], parent: "install" },
   { kind: "paragraph", start: [8, 0], end: [9, 0], parent: "install" },
 ];
 
 const ABSENCES: readonly Absence[] = [
-  { line: 2, why: "a key inside the fence is part of the one frontmatter element" },
   { line: 4, why: "the closing fence is part of the one frontmatter element" },
 ];
 

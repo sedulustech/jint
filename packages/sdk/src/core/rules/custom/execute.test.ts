@@ -192,7 +192,7 @@ describe("resolveAllCustomTargets", () => {
       internalCommentCount: 0,
       parent: "d99",
     } as InventoryElement;
-    expect(() => tsElementsOf([dangling], "src/fixture.ts")).toThrow(/d99/);
+    expect(() => tsElementsOf([dangling], "src/fixture.ts", "")).toThrow(/d99/);
   });
 
   test("the function form receives the FULL inventory and is evaluated ONCE", async () => {
@@ -236,7 +236,7 @@ describe("tsElementsOf — materialized parent view", () => {
       "typescript",
     );
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
-    const elements = tsElementsOf(inventory, "src/w.ts");
+    const elements = tsElementsOf(inventory, "src/w.ts", "");
     const klass = elements.find((e) => e.capture === "class")!;
     const method = elements.find((e) => e.capture === "method")!;
     expect(klass.parent).toBeNull();
@@ -247,7 +247,7 @@ describe("tsElementsOf — materialized parent view", () => {
 
   test("a rule's element carries the id the walk minted, and keeps the label apart", async () => {
     const inv = await decompose("function f() {}\nfunction g() {}\n", "typescript");
-    const elements = tsElementsOf(inv.definitions, "src/f.ts");
+    const elements = tsElementsOf(inv.definitions, "src/f.ts", "");
     expect(elements.map((e) => e.id)).toEqual(inv.definitions.map((d) => d.id));
     expect(elements.map((e) => e.label)).toEqual(["d0", "d1"]);
     expect(new Set(elements.map((e) => e.id)).size).toBe(2);
@@ -391,10 +391,10 @@ describe("runCustomRules — classification", () => {
     const calls: Call[] = [];
     await run(
       ruleOf({
-        classify: (self, ctx) =>
+        classify: (target) =>
           spec({
-            comment: self.source,
-            total: ctx.targets.length,
+            comment: target.source,
+            path: target.file.path,
             made_up: { a: 1 },
           }) as never,
       }),
@@ -406,7 +406,7 @@ describe("runCustomRules — classification", () => {
     // attachedComment, never folded into source
     expect(calls[0]?.state as unknown as Record<string, unknown>).toEqual({
       comment: "export function alpha() {\n  return 1;\n}",
-      total: 1,
+      path: "src/fixture.ts",
       made_up: { a: 1 },
     });
   });
@@ -557,18 +557,18 @@ describe("runCustomRules — policy", () => {
   });
 });
 
-describe("ctx.file", () => {
+describe("an element's file", () => {
   test("classify sees the judged element's file: its text, and every element as the same objects", async () => {
     const inventory = await oneFile(SOURCE);
     const rule = ruleOf({
       target: "functions",
-      classify: (self, ctx) =>
+      classify: (target) =>
         spec({
-          same: ctx.file.definitions.includes(self),
-          path: ctx.file.path,
-          source: ctx.file.source,
-          definitions: ctx.file.definitions.map((d) => d.label),
-          comments: ctx.file.comments.length,
+          same: target.file.definitions.includes(target),
+          path: target.file.path,
+          source: target.file.source,
+          definitions: target.file.definitions.map((d) => d.label),
+          comments: target.file.comments.length,
         }),
     });
     const calls: Call[] = [];
@@ -584,22 +584,5 @@ describe("ctx.file", () => {
       source: SOURCE,
       comments: 2,
     });
-  });
-
-  test("a file no target sits in gets no entry, so its text is not kept", async () => {
-    const inventory = new Map([
-      ...(await oneFile(SOURCE, "src/a.ts")),
-      ...(await oneFile("const x = 1;\n", "src/b.ts")),
-    ]);
-    const rule = ruleOf({ target: "functions" });
-    const resolved = resolveAllCustomTargets(
-      [rule],
-      inventory,
-      new Map([
-        ["src/a.ts", SOURCE],
-        ["src/b.ts", "const x = 1;\n"],
-      ]),
-    );
-    expect([...resolved.files.keys()]).toEqual(["src/a.ts"]);
   });
 });

@@ -13,7 +13,13 @@
  * flag; the yielded elements are exact for what parsed.
  */
 
-import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
+import {
+  InternalError,
+  SetupError,
+  type DocstringOwner,
+  type Element,
+  type Span,
+} from "../types.ts";
 import { type Coverage } from "./coverage.ts";
 import { extendQueries, isExtension } from "./extends.ts";
 import {
@@ -43,7 +49,11 @@ import {
   scmCaptureDeclarations,
   scmCaptureMerges,
   scmCaptureOmits,
+  scmCommentlessCaptures,
+  scmInjections,
+  scmKeyOmits,
   scmNameOmits,
+  scmValueOmits,
   scmCapturePolicy,
   scmEmittedNames,
   scmFirstNameCaptures,
@@ -58,7 +68,7 @@ import {
   sharedDefinitionDefault,
   sharedPolicyDefault,
 } from "./shared.ts";
-import type { Node } from "web-tree-sitter";
+import type { Node, Range } from "web-tree-sitter";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -91,6 +101,10 @@ export interface InventoryElement {
   readonly grammar: string;
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
+  /** The key, when a pattern binds @key: it has one in place of a name. */
+  readonly key?: string;
+  /** What the definition holds under its name or key, when a pattern binds @value. */
+  readonly value?: string;
   /**
    * A definition's text up to its body (the node its pattern marks @body), else its first line: the
    * part that names it and says what it takes. Absent on comments and imports.
@@ -662,6 +676,9 @@ function definitionCandidates(
 /** Which comments and docstrings belong to which definition, and how each definition encloses. */
 interface CommentStructure {
   enclosures: Enclosures;
+  /** The enclosures by the definitions that own comments, and those definitions. */
+  owning: Enclosures;
+  owners: readonly Candidate[];
   attachedRuns: Map<Candidate, readonly Candidate[]>;
   claimants: Map<Candidate, Candidate>;
   internalCounts: Map<Candidate, number>;
@@ -673,21 +690,30 @@ function commentStructure(
   candidates: readonly Candidate[],
   definitions: readonly Candidate[],
   definitionCaptures: ReadonlySet<string>,
+  commentless: ReadonlySet<string>,
 ): CommentStructure {
   const enclosures = enclosuresOf(definitions, [...candidates, ...definitions]);
+  const owners = definitions.filter((d) => !commentless.has(d.capture));
+  const owning =
+    owners.length === definitions.length
+      ? enclosures
+      : enclosuresOf(owners, [...candidates, ...definitions]);
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
   const claimable = candidates.filter(
     (c) => c.capture === "comment" || c.capture === "import" || definitionCaptures.has(c.capture),
   );
   for (const scope of scopesOf(claimable, enclosures))
-    for (const [definition, run] of claimCommentRuns(scope)) attachedRuns.set(definition, run);
+    for (const [definition, run] of claimCommentRuns(scope))
+      if (!commentless.has(definition.capture)) attachedRuns.set(definition, run);
   const comments = candidates.filter((c) => c.capture === "comment");
-  const { counts, texts } = docstringOwnership(candidates, enclosures, definitions);
+  const { counts, texts } = docstringOwnership(candidates, owning, owners);
   return {
     enclosures,
+    owning,
+    owners,
     attachedRuns,
     claimants: claimantsOf(attachedRuns),
-    internalCounts: internalCommentCounts(enclosures, comments),
+    internalCounts: internalCommentCounts(owning, comments),
     docstringCounts: counts,
     docstringTexts: texts,
   };
@@ -710,10 +736,15 @@ function commentCandidates(
   return mergedComments([...new Set(texts)], candidates, source, merges.get("comment"));
 }
 
-/** What a grammar leaves out of its elements: nodes from a capture's text, a pattern from its names. */
+/**
+ * What a grammar leaves out of its elements: nodes from a capture's text, a pattern from its names,
+ * keys and values.
+ */
 interface Omissions {
   readonly texts: ReadonlyMap<string, OmittedStretches>;
   readonly names: ReadonlyMap<string, RegExp>;
+  readonly keys: ReadonlyMap<string, RegExp>;
+  readonly values: ReadonlyMap<string, RegExp>;
 }
 
 /** The stretches a capture's text leaves out, in source order, and where each starts. */
@@ -728,7 +759,12 @@ function omissionsOf(scm: string, collected: ReadonlyMap<string, readonly Stretc
     const stretches = [...(collected.get(omitted) ?? [])].sort((a, b) => a.start - b.start);
     texts.set(capture, { stretches, starts: stretches.map((s) => s.start) });
   }
-  return { texts, names: scmNameOmits(scm) };
+  return {
+    texts,
+    names: scmNameOmits(scm),
+    keys: scmKeyOmits(scm),
+    values: scmValueOmits(scm),
+  };
 }
 
 function contentOf(d: Candidate, omitted: OmittedStretches | undefined, source: string): string {
@@ -745,8 +781,8 @@ function contentOf(d: Candidate, omitted: OmittedStretches | undefined, source: 
   return content + source.slice(at, endIndex);
 }
 
-const nameOf = (d: Candidate, omitted: RegExp | undefined): string | undefined =>
-  (omitted === undefined ? d.name : d.name?.replace(omitted, "")) || undefined;
+const without = (text: string | undefined, omitted: RegExp | undefined): string | undefined =>
+  (omitted === undefined ? text : text?.replace(omitted, "")) || undefined;
 
 function definitionElement(
   d: Candidate,
@@ -764,7 +800,9 @@ function definitionElement(
     nodeType: d.node.type,
     capture: d.capture as ElementCapture,
     grammar: grammarId,
-    name: nameOf(d, omissions.names.get(d.capture)),
+    name: without(d.name, omissions.names.get(d.capture)),
+    key: without(d.key, omissions.keys.get(d.capture)),
+    value: without(d.value, omissions.values.get(d.capture)),
     signature: signatureOf(d, source),
     attachedComment: structure.attachedRuns.get(d)?.map((c) => c.node.text),
     docstrings: structure.docstringTexts.get(d),
@@ -777,7 +815,6 @@ function definitionElement(
 function commentElement(
   { element, first }: { element: Candidate; first: Candidate },
   grammarId: string,
-  definitions: readonly Candidate[],
   structure: CommentStructure,
   labels: ReadonlyMap<Candidate, string>,
 ): InventoryElement {
@@ -792,7 +829,7 @@ function commentElement(
     internalCommentCount: 0,
     docstringCount: 0,
     parent: parentLabelOf(first, structure.enclosures, labels),
-    docstringOf: ownerOf(first, structure.enclosures, definitions, structure.claimants),
+    docstringOf: ownerOf(first, structure.owning, structure.owners, structure.claimants),
   };
 }
 
@@ -828,13 +865,14 @@ function materialize(
   definitionCaptures: ReadonlySet<string>,
   merges: ReadonlyMap<string, MergeMode>,
   omissions: Omissions,
+  commentless: ReadonlySet<string>,
 ): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
   imports: InventoryElement[];
 } {
   const definitions = definitionCandidates(candidates, source, definitionCaptures, merges);
-  const structure = commentStructure(candidates, definitions, definitionCaptures);
+  const structure = commentStructure(candidates, definitions, definitionCaptures, commentless);
   const comments = commentCandidates(candidates, source, merges);
   const labels = new Map<Candidate, string>();
   definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
@@ -843,7 +881,7 @@ function materialize(
     definitions: definitions.map((d) =>
       definitionElement(d, grammarId, source, omissions, structure, labels),
     ),
-    comments: comments.map((c) => commentElement(c, grammarId, definitions, structure, labels)),
+    comments: comments.map((c) => commentElement(c, grammarId, structure, labels)),
     imports: importElements(candidates, grammarId, source, merges),
   };
 }
@@ -855,15 +893,96 @@ function topNodeTypes(root: Node): string[] {
   return inside.namedChildren.flatMap((node) => (node === null ? [] : [node.type]));
 }
 
-export async function decompose(
+interface DecomposeOptions {
+  readonly queries?: string;
+  readonly registry?: GrammarRegistry;
+  /** False: the classifier sizes each call against the model's window instead (default true). */
+  readonly backstop?: boolean;
+}
+
+/** The part of a file written in another language, and the languages around it. */
+interface Injection {
+  readonly range: Range;
+  readonly around: readonly string[];
+}
+
+/** An injected element, in the file it is part of: its parent is the host when it has none inside. */
+const hosted = (host: InventoryElement, element: InventoryElement): InventoryElement => ({
+  ...element,
+  label: `${host.label}.${element.label}`,
+  parent: element.parent === undefined ? host.label : `${host.label}.${element.parent}`,
+});
+
+const inFileOrder = (
+  own: readonly InventoryElement[],
+  injected: readonly InventoryElement[],
+): InventoryElement[] => [...own, ...injected].sort((a, b) => a.span.startByte - b.span.startByte);
+
+type Elements = Pick<Inventory, "definitions" | "comments" | "imports">;
+
+/** What the grammars of the injected languages capture in this file's definitions. */
+async function injectedElements(
   source: string,
   language: string,
-  options: {
-    readonly queries?: string;
-    readonly registry?: GrammarRegistry;
-    /** False: the classifier sizes each call against the model's window instead (default true). */
-    readonly backstop?: boolean;
-  } = {},
+  definitions: readonly InventoryElement[],
+  injections: ReadonlyMap<string, string>,
+  options: DecomposeOptions,
+  around: readonly string[],
+): Promise<Elements> {
+  const injected: Elements = { definitions: [], comments: [], imports: [] };
+  for (const host of definitions) {
+    const inner = injections.get(host.capture);
+    if (inner === undefined) continue;
+    const { start, end, startByte, endByte } = host.span;
+    const inside = await decomposeRange(
+      source,
+      inner,
+      { registry: options.registry, backstop: options.backstop },
+      {
+        range: {
+          startIndex: startByte,
+          endIndex: endByte,
+          startPosition: { row: start.line - 1, column: start.column },
+          endPosition: { row: end.line - 1, column: end.column },
+        },
+        around: [...around, language],
+      },
+    );
+    injected.definitions.push(...inside.definitions.map((e) => hosted(host, e)));
+    injected.comments.push(...inside.comments.map((e) => hosted(host, e)));
+    injected.imports.push(...inside.imports.map((e) => hosted(host, e)));
+  }
+  return injected;
+}
+
+/** Every injected language has a grammar, and none is a language already open around it. */
+function assertInjections(
+  language: string,
+  injections: ReadonlyMap<string, string>,
+  registry: GrammarRegistry,
+  around: readonly string[],
+): void {
+  for (const [capture, inner] of injections) {
+    grammar(registry, inner);
+    if (inner !== language && !around.includes(inner)) continue;
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${language}: capture.${capture}.injection names "${inner}", which is already being parsed around it (${[...around, language].join(" > ")})`,
+    );
+  }
+}
+
+export const decompose = (
+  source: string,
+  language: string,
+  options: DecomposeOptions = {},
+): Promise<Inventory> => decomposeRange(source, language, options);
+
+async function decomposeRange(
+  source: string,
+  language: string,
+  options: DecomposeOptions,
+  injection?: Injection,
 ): Promise<Inventory> {
   const registry = options.registry ?? EMBEDDED;
   const backstop = options.backstop ?? true;
@@ -877,7 +996,12 @@ export async function decompose(
   const query = override
     ? await compileQuery(language, scm, lang)
     : await queryFor(entry, scm, lang);
-  const tree = parser.parse(source);
+  const injections = scmInjections(scm);
+  const around = injection?.around ?? [];
+  assertInjections(language, injections, registry, around);
+  const tree = parser.parse(source, null, {
+    includedRanges: injection === undefined ? undefined : [injection.range],
+  });
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   // a tree lives in the parser's wasm memory, which one process shares and which holds at most
@@ -898,6 +1022,15 @@ export async function decompose(
       definitionCaptures,
       scmCaptureMerges(scm),
       omissionsOf(scm, collected),
+      scmCommentlessCaptures(scm),
+    );
+    const injected = await injectedElements(
+      source,
+      language,
+      definitions,
+      injections,
+      options,
+      around,
     );
     const captured = definitions.length + comments.length + imports.length > 0;
     return {
@@ -908,9 +1041,9 @@ export async function decompose(
       },
       hasError: tree.rootNode.hasError,
       provenance: entry.provenance,
-      definitions: applySizeBackstop(definitions, backstop),
-      comments: applySizeBackstop(comments, backstop),
-      imports: applySizeBackstop(imports, backstop),
+      definitions: applySizeBackstop(inFileOrder(definitions, injected.definitions), backstop),
+      comments: applySizeBackstop(inFileOrder(comments, injected.comments), backstop),
+      imports: applySizeBackstop(inFileOrder(imports, injected.imports), backstop),
     };
   } finally {
     tree.delete();
@@ -924,6 +1057,11 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
+export const nameOrKey = ({
+  name,
+  key,
+}: Pick<InventoryElement, "name" | "key">): string | undefined => name ?? key;
+
 /** The report's element. The parent is its label, whatever form the caller's element holds it in. */
 export function projectElement(
   element: Omit<InventoryElement, "parent" | "content" | "nodeType">,
@@ -932,8 +1070,9 @@ export function projectElement(
   const base: ProjectionBase = { span: element.span, label: element.label, parent };
   const project = SHARED_PROJECTION[element.capture];
   if (project !== undefined) return project(element, base);
-  if (element.name === undefined) return { kind: element.capture, ...base };
-  return { kind: element.capture, ...base, name: element.name };
+  const name = nameOrKey(element);
+  if (name === undefined) return { kind: element.capture, ...base };
+  return { kind: element.capture, ...base, name };
 }
 
 export function fileElement(id: string, content: string): Element {

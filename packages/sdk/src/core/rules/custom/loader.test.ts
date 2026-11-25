@@ -25,10 +25,10 @@ const INLINE_RULE_CONFIG = [
     "    {\n" +
     '      name: "will_test_fire",\n' +
     '      target: "comments",\n' +
-    "      classify: (self, ctx) => ({\n" +
+    "      classify: (target) => ({\n" +
     '        instructions: "i",\n' +
     '        criteria: { true: "t", false: "f" },\n' +
-    "        state: { source: self.source, targets: ctx.targets.length },\n" +
+    "        state: { source: target.source, file: target.file.path },\n" +
     "      }),\n" +
     "      handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },\n" +
     "    },\n" +
@@ -255,8 +255,12 @@ describe("validateCustomRule (load-time, fatal)", () => {
     expect(() => validateCustomRule({ ...ok, name: "" }, "f.ts")).toThrow(/name/);
   });
 
+  test("missing target", () => {
+    expect(() => validateCustomRule({ ...ok, target: undefined }, "f.ts")).toThrow(/target/);
+  });
+
   test("invalid target string", () => {
-    expect(() => validateCustomRule({ ...ok, target: "files" }, "f.ts")).toThrow(/target/);
+    expect(() => validateCustomRule({ ...ok, target: "file" }, "f.ts")).toThrow(/target/);
   });
 
   test("missing classify", () => {

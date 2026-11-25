@@ -13,22 +13,33 @@ import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler, CONDITION_SCHEMA, NOUL_HANDLER_SCHEMA } from "../handle.ts";
 import type { InventoryElement } from "../../grammars/walk.ts";
 
+/** How a rule picks captured elements: those directly inside an element, or at the top of a file. */
+export interface ElementSelection {
+  /**
+   * The one element a selector matches, with this name when one is given. It throws when there is
+   * none, or more than one.
+   */
+  readonly getElement: (target: string, name?: string) => CustomElement;
+  /** Every element a selector matches, or every element without one, in file order. */
+  readonly getElements: (target?: string) => readonly CustomElement[];
+}
+
 /**
  * The element a rule sees: what the walk found, in its file, linked to the elements around it.
  * Every field of the walk's element reaches a rule unless it is left out here.
  */
-export interface CustomElement extends Omit<
-  InventoryElement,
-  "content" | "nodeType" | "oversized" | "parent"
-> {
+export interface CustomElement
+  extends
+    ElementSelection,
+    Omit<InventoryElement, "content" | "nodeType" | "oversized" | "parent"> {
   /** The file the element is in. */
   readonly path: string;
   /** The element's text, less what its grammar omits from the capture. */
   readonly source: string;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
-  /** The elements directly inside this one, in file order. */
-  readonly children: readonly CustomElement[];
+  /** The file the element sits in; a file's own is itself. */
+  readonly file: CustomFile;
 }
 
 /** The rule's environment, assembled by the engine after target resolution. */
@@ -41,22 +52,13 @@ export interface RuleContext {
 }
 
 /**
- * The file an element sits in, as the walk saw it: its text and every element in it, in walk order.
- * The element being judged is one of them, the same object.
+ * A file, as the walk saw it. It is the element a file rule judges, and the file every other
+ * element sits in.
  */
-export interface CustomFile {
-  readonly path: string;
-  readonly source: string;
+export interface CustomFile extends CustomElement {
   readonly definitions: readonly CustomElement[];
   readonly comments: readonly CustomElement[];
   readonly imports: readonly CustomElement[];
-  /** Every element in the file, in file order. */
-  readonly elements: readonly CustomElement[];
-}
-
-/** Classify's environment: the rule's context plus the file of the element being judged. */
-export interface ClassifyContext extends RuleContext {
-  readonly file: CustomFile;
 }
 
 /**
@@ -84,10 +86,7 @@ export interface CustomDecision {
 }
 
 /** The part of a state a rule composes for one element; a part with no value is left out. */
-export type ComposeState = (
-  self: CustomElement,
-  ctx: ClassifyContext,
-) => Readonly<Record<string, unknown>>;
+export type ComposeState = (target: CustomElement) => Readonly<Record<string, unknown>>;
 
 /** A question that is the same for every element, and the state that differs. */
 export interface ComposedQuestion {
@@ -100,7 +99,7 @@ export interface ComposedQuestion {
 /** A question composed per element, its state included. */
 export interface ClassifiedQuestion {
   /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
+  readonly classify: (target: CustomElement) => StateSchema;
   readonly state?: undefined;
   readonly instructions?: undefined;
   readonly criteria?: undefined;
@@ -118,6 +117,7 @@ export interface CustomRuleBase {
   readonly name: string;
   readonly kind?: "noul";
   readonly target:
+    | "files"
     | `${string}:${string}`
     | "functions"
     | "classes"
@@ -170,8 +170,8 @@ export interface TsConfig {
   readonly charsPerToken?: number;
 }
 
-/** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
 export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
+  "files",
   "functions",
   "classes",
   "methods",
@@ -252,6 +252,12 @@ export function validateDecision(
   return decision as Static<typeof DECISION_SCHEMA>;
 }
 
+/** The targets a rule names, which a target function has none of. */
+export function targetNamesOf({ target }: Pick<CustomRule, "target">): readonly string[] {
+  if (typeof target === "function") return [];
+  return typeof target === "string" ? [target] : target;
+}
+
 function isRole(t: unknown): boolean {
   return typeof t === "string" && (CUSTOM_TARGET_ROLES as readonly string[]).includes(t);
 }
@@ -284,7 +290,7 @@ function checkQuestion(rule: Record<string, unknown>): string | null {
       ? null
       : `${extra} and classify - classify returns all of the question`;
   }
-  if (typeof rule.state !== "function") return "missing state(self, ctx) or classify(self, ctx)";
+  if (typeof rule.state !== "function") return "missing state(target) or classify(target)";
   return Value.Check(QUESTION_SCHEMA, rule)
     ? null
     : "state needs instructions and criteria { true, false } beside it";

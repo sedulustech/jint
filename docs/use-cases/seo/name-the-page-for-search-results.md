@@ -1,6 +1,6 @@
 ---
 title: "Name the page for search results"
-description: "A rule that compares the title a search result shows with the page's text, and flags a title that is vague or names another subject."
+description: "A rule that compares the title a search result shows with the page's text, so you can fix a title that is vague or names another subject."
 sidebar:
   label: SEO
 ---
@@ -15,7 +15,7 @@ import { defineConfig, type CustomRule } from "jint:sdk";
 const is_meta_title_vague: CustomRule = {
   name: "is_meta_title_vague",
   instructions:
-    "metaTitle is the title a search result shows for the page in pageContent; the part after the last separator is the site's name. Does metaTitle fail to describe pageContent?",
+    "metaTitle is the title a search result shows for the page in pageContent. Does metaTitle fail to describe pageContent?",
   criteria: {
     true: 'metaTitle is vague or inaccurate. Vague: a label such as "Home", "Profile" or "Overview" that would fit many pages and does not say which subject or task of pageContent this page covers. Inaccurate: it names a subject that is not the main subject of pageContent.',
     false:
@@ -28,12 +28,13 @@ const is_meta_title_vague: CustomRule = {
       message: "Rewrite the title to name the page's main subject, or the task a reader completes.",
     },
   },
-  target: "markdown:frontmatter",
-  state: (page, { file }) => {
-    const title = page.source.match(/^title: *(.+)$/m)?.[1];
-    if (title === undefined) throw new Error("the front matter has no title");
-    return { metaTitle: title, pageContent: file.source.slice(page.span.endByte) };
-  },
+  target: "files",
+  state: (file) => ({
+    metaTitle:
+      file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value +
+      " - jint docs",
+    pageContent: file.getElement("markdown:h1").source,
+  }),
 };
 
 export default defineConfig({ rules: { include: ["docs/**/*.md"], use: [is_meta_title_vague] } });

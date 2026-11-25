@@ -37,6 +37,12 @@ import {
 import { RULE_TARGETS } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
+import {
+  CONTEXT_FIELDS,
+  ELEMENT_FIELDS,
+  FILE_FIELDS,
+  FUNCTION_FIELDS,
+} from "../packages/sdk/src/core/rules/custom/fields.ts";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
@@ -421,6 +427,20 @@ function fieldEntry(path: string, node: TableNode, required: boolean, within?: s
   };
 }
 
+/** The fields a rule's functions are written with or given, from the custom rule's own types. */
+function customFieldEntries(
+  within: string,
+  fields: Readonly<Record<string, readonly [type: string, meaning: string]>>,
+): RefEntry[] {
+  return Object.entries(fields).map(([name, [type, body]]) => ({
+    id: `${within}-${name}`.toLowerCase(),
+    level: 3,
+    name,
+    pills: [type],
+    body,
+  }));
+}
+
 /** The config reference: every key and rule field as one entry, all from the schema. */
 export function configSections(): RefSection[] {
   const root = CONFIG_SCHEMA as unknown as TableNode;
@@ -466,6 +486,28 @@ export function configSections(): RefSection[] {
       intro:
         "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
       entries: entries((path) => path.startsWith("handle."), "handle"),
+    },
+    {
+      title: "Rule function fields",
+      intro:
+        "Functions, so they work only in `jint.config.ts`. A JSON config cannot compose a state yet: one with a `state` or `classify` field is an error.",
+      entries: customFieldEntries("function", FUNCTION_FIELDS),
+    },
+    {
+      title: "Element fields",
+      intro: "The `self` a function is given: one captured element.",
+      entries: customFieldEntries("element", ELEMENT_FIELDS),
+    },
+    {
+      title: "Context fields",
+      intro: "The `ctx` of `handle`.",
+      entries: customFieldEntries("context", CONTEXT_FIELDS),
+    },
+    {
+      title: "File fields",
+      intro:
+        "The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.",
+      entries: customFieldEntries("file", FILE_FIELDS),
     },
   ];
 }

@@ -245,4 +245,212 @@ A [low, high] range of values that raises no finding.
 
 _object[]_
 
+## Rule function fields
+
+Functions, so they work only in `jint.config.ts`. A JSON config cannot compose a state yet: one with a `state` or `classify` field is an error.
+
+### `state`
+
+Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only.
+
+_(target) => object_
+
+### `classify`
+
+Composes the question too, when it changes from one element to the next. A rule has state or classify, never both.
+
+_(target) => { instructions, criteria, state }_
+
+### `target`
+
+Chooses the elements to judge. It is given every element of the run.
+
+_(elements) => elements_
+
+### `handle`
+
+Decides the severity of each result, after every element is classified. A null severity raises no finding.
+
+_(results, ctx) => decisions_
+
+## Element fields
+
+The `self` a function is given: one captured element.
+
+### `name`
+
+The declared name, or the heading's text. Absent when the capture has none.
+
+_string_
+
+### `key`
+
+The key of a pair, which has one in place of a name.
+
+_string_
+
+### `value`
+
+What the element holds under its name or key.
+
+_string_
+
+### `source`
+
+The element's text, less what its grammar omits from the capture.
+
+_string_
+
+### `parent`
+
+The element this one sits inside.
+
+_element | null_
+
+### `file`
+
+The file the element is in. A file's own is itself.
+
+_file_
+
+### `getElement`
+
+The one element directly inside this one that a selector matches. It throws when there is none, or more than one.
+
+_(target, name?) => element_
+
+### `getElements`
+
+The elements directly inside this one that a selector matches, or all of them, in file order.
+
+_(target?) => element[]_
+
+### `capture`
+
+What the element is, as its grammar captures it.
+
+_string_
+
+### `grammar`
+
+The grammar that captured the element.
+
+_string_
+
+### `path`
+
+The file the element is in.
+
+_string_
+
+### `span`
+
+Where the element is in the file: lines, columns and bytes.
+
+_object_
+
+### `signature`
+
+A definition's text up to its body, or its first line.
+
+_string_
+
+### `attachedComment`
+
+The comment run directly above a definition.
+
+_string[]_
+
+### `docstrings`
+
+The docstrings a definition owns outside its own text.
+
+_string[]_
+
+### `docstringOf`
+
+For a docstring: the definition it documents.
+
+_object_
+
+### `internalCommentCount`
+
+How many comments sit inside the element.
+
+_number_
+
+### `docstringCount`
+
+How many docstrings the definition owns.
+
+_number_
+
+### `id`
+
+The element's identity in this run.
+
+_string_
+
+### `label`
+
+The element's position in its file, such as d0.
+
+_string_
+
+## Context fields
+
+The `ctx` of `handle`.
+
+### `targets`
+
+Every element the rule judges in this run.
+
+_element[]_
+
+## File fields
+
+The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.
+
+### `path`
+
+The file's path.
+
+_string_
+
+### `source`
+
+The file's whole text.
+
+_string_
+
+### `getElement`
+
+The one element at the top of the file that a selector matches. It throws when there is none, or more than one.
+
+_(target, name?) => element_
+
+### `getElements`
+
+The elements at the top of the file that a selector matches, or all of them, in file order.
+
+_(target?) => element[]_
+
+### `definitions`
+
+The file's definitions, at any depth.
+
+_element[]_
+
+### `comments`
+
+The file's comments, at any depth.
+
+_element[]_
+
+### `imports`
+
+The file's imports.
+
+_element[]_
+
 <!-- /generated:reference -->

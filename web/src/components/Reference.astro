@@ -15,7 +15,7 @@ const sections = (data as unknown as RefPages)[page];
 {
   sections.map((section) => (
     <section>
-      <h2>{section.title}</h2>
+      <h2 id={section.title.toLowerCase().replaceAll(" ", "-")}>{section.title}</h2>
       {section.intro !== undefined && (
         <p>
           {inline(section.intro).map((part) => (part.kind === "code" ? <code>{part.text}</code> : part.text))}

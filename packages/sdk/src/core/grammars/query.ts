@@ -80,9 +80,30 @@ export function scmCaptureOmits(scm: string): ReadonlyMap<string, string> {
   return captureSettings(scm, "omit");
 }
 
-export function scmNameOmits(scm: string): ReadonlyMap<string, RegExp> {
-  const declared = captureSettings(scm, "nameOmit");
-  return new Map([...declared].map(([capture, value]) => [capture, new RegExp(value, "u")]));
+function omittedPatterns(
+  scm: string,
+  knob: "nameOmit" | "keyOmit" | "valueOmit",
+): ReadonlyMap<string, RegExp> {
+  const declared = captureSettings(scm, knob);
+  return new Map([...declared].map(([capture, value]) => [capture, new RegExp(value, "gu")]));
+}
+
+export const scmNameOmits = (scm: string): ReadonlyMap<string, RegExp> =>
+  omittedPatterns(scm, "nameOmit");
+
+export const scmKeyOmits = (scm: string): ReadonlyMap<string, RegExp> =>
+  omittedPatterns(scm, "keyOmit");
+
+export const scmValueOmits = (scm: string): ReadonlyMap<string, RegExp> =>
+  omittedPatterns(scm, "valueOmit");
+
+/** Capture name to the language its text is written in. */
+export const scmInjections = (scm: string): ReadonlyMap<string, string> =>
+  captureSettings(scm, "injection");
+
+export function scmCommentlessCaptures(scm: string): ReadonlySet<string> {
+  const declared = [...captureSettings(scm, "ownsComments")];
+  return new Set(declared.filter(([, value]) => value === "false").map(([capture]) => capture));
 }
 
 /** A .scm string's value: a backslash there escapes the next character. */
@@ -134,8 +155,10 @@ export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
 const NAME_CAPTURE = "name";
 /** Marks where a definition's body starts: its signature is the text before that node. */
 const BODY_CAPTURE = "body";
+const KEY_CAPTURE = "key";
+const VALUE_CAPTURE = "value";
 /** Captures that point at a part of an element, never an element of their own. */
-const ROLE_CAPTURES: readonly string[] = [NAME_CAPTURE, BODY_CAPTURE];
+const ROLE_CAPTURES: readonly string[] = [NAME_CAPTURE, BODY_CAPTURE, KEY_CAPTURE, VALUE_CAPTURE];
 
 /** One top-level pattern of a .scm: its root node type, the captures it binds, and where it sits. */
 export interface ScmPattern {
@@ -325,14 +348,16 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * inside; `none` - every candidate is its own element), `naming` (a node one pattern matches
  * several times, each match with another name: `strict` fails the load, `first` keeps the first
  * name in the source), `omit` (the capture whose nodes are left out of this one's text), `nameOmit`
- * (the pattern left out of this one's name).
+ * (the pattern left out of this one's name), `keyOmit` and `valueOmit` (the same for its key and
+ * its value), `injection` (the language its text is written in), `ownsComments` (whether the
+ * comments in and above it are its).
  */
 const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming|omit|nameOmit)/;
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming|omit|nameOmit|keyOmit|valueOmit|injection|ownsComments)/;
 const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
 export type MergeMode = (typeof MERGE_MODES)[number];
 const NAMING_MODES = ["strict", "first"] as const;
-type KnobShape = "boolean" | "number" | "capture" | "regex" | readonly string[];
+type KnobShape = "boolean" | "number" | "capture" | "regex" | "language" | readonly string[];
 const CAPTURE_KNOBS: Readonly<Record<string, { shape: KnobShape; summary: string }>> = {
   definition: {
     shape: "boolean",
@@ -374,6 +399,26 @@ const CAPTURE_KNOBS: Readonly<Record<string, { shape: KnobShape; summary: string
     summary:
       "Leaves what a regular expression matches out of this capture's names, such as the closing `##` of a heading. Default: nothing is left out.",
   },
+  keyOmit: {
+    shape: "regex",
+    summary:
+      "Leaves what a regular expression matches out of this capture's keys, such as the quotes around one. A pattern binds the key with `@key`. Default: nothing is left out.",
+  },
+  valueOmit: {
+    shape: "regex",
+    summary:
+      "Leaves what a regular expression matches out of this capture's values, such as the quotes around a string. A pattern binds the value with `@value`. Default: nothing is left out.",
+  },
+  injection: {
+    shape: "language",
+    summary:
+      "Parses this capture's text with another grammar, and captures what that grammar's queries find in it. Default: the text is not parsed again.",
+  },
+  ownsComments: {
+    shape: "boolean",
+    summary:
+      "Whether the comments inside this capture and directly above it are its documentation. Default true.",
+  },
 };
 
 const KNOB_WANTS: Readonly<Record<Exclude<KnobShape, readonly string[]>, string>> = {
@@ -381,6 +426,7 @@ const KNOB_WANTS: Readonly<Record<Exclude<KnobShape, readonly string[]>, string>
   number: "a whole number",
   capture: "a capture the queries emit",
   regex: "a regular expression",
+  language: "the id of a grammar",
 };
 
 const knobWants = (shape: KnobShape): string =>
@@ -393,6 +439,7 @@ function knobAccepts(
 ): boolean {
   if (typeof shape !== "string") return shape.includes(value);
   if (shape === "boolean") return value === "true" || value === "false";
+  if (shape === "language") return /^[a-z][a-z0-9_-]*$/.test(value);
   if (shape === "number") return /^\d+$/.test(value);
   return emitted.has(value);
 }
@@ -852,6 +899,10 @@ export interface Candidate {
   readonly name?: string;
   /** Where the name node starts: the first of several names on one node is the earliest. */
   readonly nameIndex?: number;
+  /** The text of the @key node. */
+  readonly key?: string;
+  /** The text of the @value node. */
+  readonly value?: string;
   /** Where the @body node starts, when the pattern marks one: the signature ends there. */
   readonly bodyIndex?: number;
   /** The pattern's #set! values as tree-sitter parsed them, keyed by directive name. */
@@ -902,6 +953,8 @@ function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candi
     },
     name,
     nameIndex: nameCaptures[0]?.node.startIndex,
+    key: match.captures.find((c) => c.name === KEY_CAPTURE)?.node.text,
+    value: match.captures.find((c) => c.name === VALUE_CAPTURE)?.node.text,
     bodyIndex: match.captures.find((c) => c.name === BODY_CAPTURE)?.node.startIndex,
     properties,
   };

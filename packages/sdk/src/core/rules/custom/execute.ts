@@ -9,7 +9,14 @@
  * bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS, projectElement } from "../../grammars/walk.ts";
+import {
+  charsToTokens,
+  fileElement,
+  MAX_ELEMENT_TOKENS,
+  projectElement,
+  nameOrKey,
+  type InventoryElement,
+} from "../../grammars/walk.ts";
 import { inCall } from "../../provider/debug.ts";
 import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
 import { ruleInScope } from "../../scope.ts";
@@ -22,50 +29,129 @@ import {
   type RuleResult,
   type Span,
 } from "../../types.ts";
-import { matchesTarget } from "../classify.ts";
-import { isRefusal, toClassifyError } from "../classify.ts";
+import { classifiedState, isRefusal, matchesTarget, toClassifyError } from "../classify.ts";
 import { compileNoulHandler } from "../handle.ts";
 import {
+  targetNamesOf,
   validateDecision,
   validateStateSpec,
-  type ClassifyContext,
   type CustomElement,
   type CustomFile,
   type CustomRule,
+  type ElementSelection,
 } from "./schema.ts";
-import type { InventoryElement } from "../../grammars/walk.ts";
+import { selectionOf } from "./selection.ts";
+import type { GrammarRegistry } from "../../grammars/grammars.ts";
 
 /**
- * One file's elements for rules, in file order. A dangling parent label is an inventory
- * inconsistency: it throws, never silently nulls.
+ * The element around this one. A dangling parent label is an inventory inconsistency: it throws,
+ * never silently nulls.
  */
-function fileElementsOf(inventory: readonly InventoryElement[], path: string): CustomElement[] {
+function parentOf(
+  element: InventoryElement,
+  byLabel: ReadonlyMap<string, InventoryElement>,
+): InventoryElement | undefined {
+  if (element.parent === undefined) return undefined;
+  const parent = byLabel.get(element.parent);
+  if (parent !== undefined) return parent;
+  throw new Error(
+    `inventory inconsistency: element ${element.label} names parent ${element.parent}, which does not exist`,
+  );
+}
+
+function placeName(element: InventoryElement): string {
+  const name = nameOrKey(element);
+  return name === undefined ? `the ${element.capture}` : `the ${element.capture} "${name}"`;
+}
+
+interface WalkedFile {
+  readonly file: CustomFile;
+  readonly judged: readonly CustomElement[];
+}
+
+function walkedFile(
+  path: string,
+  source: string,
+  inventory: readonly InventoryElement[],
+  registry?: GrammarRegistry,
+): WalkedFile {
+  const topLevel: CustomElement[] = [];
+  const file = emptyFile(path, source, inventory, selectionOf(topLevel, "the file", registry));
+  const elements = elementsInFileOrder(inventory, file, registry);
+  topLevel.push(...elements.filter(({ parent }) => parent === null));
+  const judged = judgeable(inventory, elements);
+  file.definitions.push(...judged.filter(isDefinition));
+  file.comments.push(...judged.filter((e) => e.capture === "comment"));
+  file.imports.push(...judged.filter((e) => e.capture === "import"));
+  return { file, judged };
+}
+
+const isDefinition = ({ capture }: CustomElement): boolean =>
+  capture !== "comment" && capture !== "import";
+
+/** A file before its elements: each element holds its file, so the file comes first. */
+function emptyFile(
+  path: string,
+  source: string,
+  inventory: readonly InventoryElement[],
+  selection: ElementSelection,
+) {
+  const { span, label } = fileElement(classifiedState({ path, content: source }).id, source);
+  const own = {
+    path,
+    source,
+    capture: "file",
+    grammar: inventory.find((e) => e.parent === undefined)?.grammar ?? "",
+    id: label,
+    label,
+    span,
+    parent: null,
+    internalCommentCount: inventory.filter((e) => e.capture === "comment").length,
+    docstringCount: inventory.filter((e) => e.docstringOf?.kind === "module").length,
+    definitions: new Array<CustomElement>(),
+    comments: new Array<CustomElement>(),
+    imports: new Array<CustomElement>(),
+    ...selection,
+  };
+  const file: typeof own & CustomFile = inFile(own, () => file);
+  return file;
+}
+
+/** Not enumerable: a file holds its elements, so an element in a state could not be JSON. */
+function inFile<T extends object>(
+  element: T,
+  fileOf: () => CustomFile,
+): T & { readonly file: CustomFile } {
+  Object.defineProperty(element, "file", { get: fileOf });
+  return element as T & { readonly file: CustomFile };
+}
+
+function elementsInFileOrder(
+  inventory: readonly InventoryElement[],
+  file: CustomFile,
+  registry?: GrammarRegistry,
+): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
+  const insideOf = new Map<string, CustomElement[]>();
+  const fileOf = (): CustomFile => file;
   const convert = (e: InventoryElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
-    const parentLabel = e.parent;
-    const parent = parentLabel !== undefined ? byLabel.get(parentLabel) : undefined;
-    if (parentLabel !== undefined && parent === undefined) {
-      throw new Error(
-        "inventory inconsistency: element " +
-          e.label +
-          " names parent " +
-          parentLabel +
-          ", which does not exist",
-      );
-    }
+    const enclosing = parentOf(e, byLabel);
     const { content, nodeType: _nodeType, oversized: _oversized, ...walked } = e;
-    const element: CustomElement = {
-      ...walked,
-      path,
-      source: content,
-      parent: parent ? convert(parent) : null,
-      children: [],
-    };
-    // an element reaches its parent, so a listed child would make it a cycle that JSON refuses
-    Object.defineProperty(element, "children", { enumerable: false });
+    const inside: CustomElement[] = [];
+    insideOf.set(e.label, inside);
+    const element: CustomElement = inFile(
+      {
+        ...walked,
+        path: file.path,
+        source: content,
+        parent: enclosing === undefined ? null : convert(enclosing),
+        ...selectionOf(inside, placeName(e), registry),
+      },
+      fileOf,
+    );
     cache.set(e.label, element);
     return element;
   };
@@ -73,7 +159,7 @@ function fileElementsOf(inventory: readonly InventoryElement[], path: string): C
     .sort((a, b) => a.span.startByte - b.span.startByte || b.span.endByte - a.span.endByte)
     .map(convert);
   for (const element of elements) {
-    (element.parent?.children as CustomElement[] | undefined)?.push(element);
+    if (element.parent !== null) insideOf.get(element.parent.label)!.push(element);
   }
   return elements;
 }
@@ -82,8 +168,9 @@ function fileElementsOf(inventory: readonly InventoryElement[], path: string): C
 export function tsElementsOf(
   inventory: readonly InventoryElement[],
   path: string,
-): CustomElement[] {
-  return judgeable(inventory, fileElementsOf(inventory, path));
+  source: string,
+): readonly CustomElement[] {
+  return walkedFile(path, source, inventory).judged;
 }
 
 function judgeable(
@@ -97,65 +184,44 @@ function judgeable(
 export type ResolvedCustomTarget =
   | { targets: readonly CustomElement[]; scopedOut: number }
   | { error: ClassifyError };
-/** Every rule's resolution, plus the file of each path a target sits in (the classify ctx.file). */
-export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget> & {
-  readonly files: ReadonlyMap<string, CustomFile>;
-};
+
+export type ResolvedCustomTargets = ReadonlyMap<CustomRule, ResolvedCustomTarget>;
 
 /**
  * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
- * inventory; the function form receives the FULL walk inventory — not the rule's context — and is
- * pure selection. Errors resolve to a per-unit failure for that rule.
+ * inventory, and the function form receives the FULL walk inventory — not the rule's context.
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
   inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
   sourceByPath: ReadonlyMap<string, string> = new Map(),
+  registry?: GrammarRegistry,
+  judgesFiles = true,
 ): ResolvedCustomTargets {
-  const elementsByPath = new Map<string, readonly CustomElement[]>();
-  const fileElements = new Map<string, readonly CustomElement[]>();
-  for (const [path, inventory] of inventoryByPath) {
-    const elements = fileElementsOf(inventory, path);
-    fileElements.set(path, elements);
-    elementsByPath.set(path, judgeable(inventory, elements));
-  }
-  const allElements = [...elementsByPath.values()].flat();
-  const rules = new Map<CustomRule, ResolvedCustomTarget>();
-  for (const rule of customRules) rules.set(rule, resolveTargets(rule, allElements));
-  // only a file a target sits in gets one: the run drops the text of every other file
-  const files = new Map<string, CustomFile>();
-  for (const resolved of rules.values()) {
-    if (!("targets" in resolved)) continue;
-    for (const { path } of resolved.targets) {
-      if (!files.has(path)) {
-        files.set(
-          path,
-          customFileOf(
-            path,
-            sourceByPath.get(path) ?? "",
-            elementsByPath.get(path)!,
-            fileElements.get(path)!,
-          ),
-        );
-      }
-    }
-  }
-  return Object.assign(rules, { files });
+  const walked = [...inventoryByPath].map(([path, inventory]) =>
+    walkedFile(path, sourceByPath.get(path) ?? "", inventory, registry),
+  );
+  const allElements = walked.flatMap(({ judged }) => judged);
+  const judgedFiles = judgesFiles ? walked.map(({ file }) => file) : [];
+  return new Map(
+    customRules.map((rule) => [
+      rule,
+      withFiles(rule, resolveTargets(rule, allElements), judgedFiles),
+    ]),
+  );
 }
 
-function customFileOf(
-  path: string,
-  source: string,
-  elements: readonly CustomElement[],
-  all: readonly CustomElement[] = elements,
-): CustomFile {
+/** The targets of a rule that judges files, with each file in its scope before its elements. */
+function withFiles(
+  rule: CustomRule,
+  resolved: ResolvedCustomTarget,
+  files: readonly CustomFile[],
+): ResolvedCustomTarget {
+  if ("error" in resolved || !targetNamesOf(rule).includes("files")) return resolved;
+  const inScope = files.filter(({ path }) => ruleInScope(rule, path));
   return {
-    path,
-    source,
-    definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
-    comments: elements.filter((e) => e.capture === "comment"),
-    imports: elements.filter((e) => e.capture === "import"),
-    elements: all,
+    targets: [...inScope, ...resolved.targets],
+    scopedOut: resolved.scopedOut + files.length - inScope.length,
   };
 }
 
@@ -187,7 +253,7 @@ export function resolveTargets(
   // THE shared target grammar: selection here is the same per-element mapping the declarative
   // tier uses, so the two tiers cannot drift (a comments target matches comment elements AND code
   // carrying an attachedComment).
-  const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
+  const requested = targetNamesOf(rule);
   const filtered = allElements.filter(
     (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
   );
@@ -253,23 +319,19 @@ function classificationEvent(
   };
 }
 
-function questionOf(rule: CustomRule, element: CustomElement, ctx: ClassifyContext): unknown {
-  if (rule.classify !== undefined) return rule.classify(element, ctx);
+function questionOf(rule: CustomRule, element: CustomElement): unknown {
+  if (rule.classify !== undefined) return rule.classify(element);
   const { instructions, criteria } = rule;
-  const state = rule.state(element, ctx);
+  const state = rule.state(element);
   if (isPromise(state)) throw new Error("state returned a Promise — handlers are sync-only in v1");
   return { instructions, criteria, state };
 }
 
 /** The rule's state for one element, or the error that says why it has none. */
-function stateFor(
-  rule: CustomRule,
-  element: CustomElement,
-  ctx: ClassifyContext,
-): ReturnType<typeof validateStateSpec> {
+function stateFor(rule: CustomRule, element: CustomElement): ReturnType<typeof validateStateSpec> {
   const input = inputOf(element);
   try {
-    const spec = questionOf(rule, element, ctx);
+    const spec = questionOf(rule, element);
     if (isPromise(spec)) {
       throw new Error("classify returned a Promise — handlers are sync-only in v1");
     }
@@ -292,14 +354,13 @@ function oversizedPart(state: object, limits: StateLimits): string | undefined {
 async function measure(
   rule: CustomRule,
   element: CustomElement,
-  ctx: ClassifyContext,
   classifier: Classifier,
   limits: StateLimits,
 ): Promise<Measured> {
   const input = inputOf(element);
   let stateSpec: ReturnType<typeof validateStateSpec>;
   try {
-    stateSpec = stateFor(rule, element, ctx);
+    stateSpec = stateFor(rule, element);
   } catch (thrown) {
     return { events: [{ type: "error", error: thrown as ClassifyError }] };
   }
@@ -438,27 +499,18 @@ function emptyPartNotes(rule: CustomRule, states: readonly ComposedState[]): Lin
 async function runRule(
   rule: CustomRule,
   targets: readonly CustomElement[],
-  files: ReadonlyMap<string, CustomFile>,
   classifier: Classifier,
   isAborted: () => boolean,
   limits: StateLimits,
 ): Promise<{ events: LintEvent[]; fatal: boolean }> {
   const ctx = { targets };
-  const fileOf = (element: CustomElement): CustomFile =>
-    files.get(element.path) ?? customFileOf(element.path, "", [element]);
   const events: LintEvent[] = [];
   const measured: { element: CustomElement; value: number }[] = [];
   const states: ComposedState[] = [];
   let fatal = false;
   for (const element of targets) {
     if (isAborted() || fatal) break;
-    const result = await measure(
-      rule,
-      element,
-      { targets, file: fileOf(element) },
-      classifier,
-      limits,
-    );
+    const result = await measure(rule, element, classifier, limits);
     events.push(...result.events);
     fatal = result.fatal === true;
     if (result.state !== undefined) states.push({ element, state: result.state });
@@ -495,14 +547,7 @@ export async function runCustomRules(
     }
     events.push(...resolutionEvents(rule, resolvedRule));
     if ("error" in resolvedRule) continue;
-    const ran = await runRule(
-      rule,
-      resolvedRule.targets,
-      resolved.files,
-      classifier,
-      isAborted,
-      limits,
-    );
+    const ran = await runRule(rule, resolvedRule.targets, classifier, isAborted, limits);
     events.push(...ran.events);
     fatal = ran.fatal;
   }

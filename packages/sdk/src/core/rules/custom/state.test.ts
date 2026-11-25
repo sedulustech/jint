@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { EMBEDDED } from "../../grammars/grammars.ts";
 import { decompose, projectElement, type InventoryElement } from "../../grammars/walk.ts";
 import { resolveAllCustomTargets, runCustomRules } from "./execute.ts";
 import { validateCustomRule, type CustomElement, type CustomRule } from "./schema.ts";
@@ -41,7 +42,7 @@ async function statesOf(
   const full = { name: "is_rule", handle: { warn: { greater_than: 0.5 } }, ...QUESTION, ...rule };
   const valid = validateCustomRule(full, "jint.config.ts");
   const inventory = new Map([["f", await inventoryOf(source, language)]]);
-  const resolved = resolveAllCustomTargets([valid], inventory);
+  const resolved = resolveAllCustomTargets([valid], inventory, undefined, EMBEDDED);
   const { events } = await runCustomRules([valid], resolved, classifier, () => false);
   return {
     states,
@@ -51,11 +52,10 @@ async function statesOf(
 }
 
 const example = (entry: CustomElement): string | undefined =>
-  entry.children.find((c) => c.capture === "code_block")?.children.find((c) => c.capture === "code")
-    ?.source;
+  entry.getElements("markdown:code_block")[0]?.getElements("markdown:code")[0]?.source;
 
 describe("a rule's state function", () => {
-  test("composes from the parent, the name and the children", async () => {
+  test("composes from the parent, the name and the elements inside", async () => {
     const { states } = await statesOf(
       {
         target: "markdown:h4",
@@ -83,32 +83,174 @@ describe("a rule's state function", () => {
     ]);
   });
 
-  test("file.elements is every element, in file order", async () => {
+  test("file.getElements() is each element at the top of the file, in file order", async () => {
     const { states } = await statesOf(
       {
         target: "functions",
-        state: (_, { file }) => ({ order: file.elements.map((e) => e.capture + " " + e.name) }),
+        state: ({ file }) => ({
+          order: file.getElements().map((e) => e.capture + " " + e.name),
+        }),
       },
       'import a from "a";\n\n\n// loose\n\n\nclass A {\n  m() {}\n}\nexport function f() {}\n',
       "typescript",
     );
     expect(states as unknown).toEqual([
-      { order: ["import undefined", "comment undefined", "class A", "method m", "function f"] },
+      { order: ["import undefined", "comment undefined", "class A", "function f"] },
     ]);
   });
 
-  test("a parent lists its children, and each child names that parent", async () => {
+  test("an element lists those directly inside it, and each names it as its parent", async () => {
     await statesOf(
       {
         target: "markdown:h4",
         state: (h4) => {
-          for (const child of h4.children) expect(child.parent).toBe(h4);
-          expect(h4.parent!.children).toContain(h4);
+          for (const child of h4.getElements()) expect(child.parent).toBe(h4);
+          expect(h4.parent!.getElements()).toContain(h4);
           return {};
         },
       },
       CLI,
     ).then(({ states, errors }) => expect([states.length, errors]).toEqual([2, []]));
+  });
+
+  const PAGE = '---\ntitle: "A page"\nsidebar:\n  title: Short\n---\n\n# A\n\n## B\n\n## C\n';
+
+  test("element is the one a target takes, found by its name among those directly inside", async () => {
+    const { states } = await statesOf(
+      {
+        target: "markdown:h1",
+        state: (h1) => ({
+          title: h1.file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+          sections: h1.getElements("markdown:h2").map((h2) => h2.name),
+        }),
+      },
+      PAGE,
+    );
+    expect(states as unknown).toEqual([{ title: "A page", sections: ["B", "C"] }]);
+  });
+
+  test("a selector looks at one level, in a file and in an element", async () => {
+    const { states } = await statesOf(
+      {
+        target: "files",
+        state: (file) => ({
+          top: file.getElement("yaml:pair", "name").value,
+          inside: file
+            .getElement("yaml:pair", "author")
+            .getElements("yaml:pair")
+            .map((pair) => pair.value),
+        }),
+      },
+      "name: a\nauthor:\n  name: b\n",
+      "yaml",
+    );
+    expect(states as unknown).toEqual([{ top: "a", inside: ["b"] }]);
+  });
+
+  test("each entry of a list holds its own pairs, found by their key", async () => {
+    const { states, errors } = await statesOf(
+      {
+        target: "files",
+        state: (file) => ({
+          steps: file
+            .getElement("yaml:pair", "steps")
+            .getElements("yaml:sequence_item")
+            .map((step) =>
+              step.getElements("yaml:pair").map(({ key, name, value }) => [key, name, value]),
+            ),
+          second: file
+            .getElement("yaml:pair", "steps")
+            .getElements("yaml:sequence_item")[1]!
+            .getElement("yaml:pair", "run").value,
+        }),
+      },
+      'steps:\n  - "name": Test\n    run: bun test\n  - name: Build\n    run: bun build\n',
+      "yaml",
+    );
+    expect(errors).toEqual([]);
+    expect(states as unknown).toEqual([
+      {
+        steps: [
+          [
+            ["name", null, "Test"],
+            ["run", null, "bun test"],
+          ],
+          [
+            ["name", null, "Build"],
+            ["run", null, "bun build"],
+          ],
+        ],
+        second: "bun build",
+      },
+    ]);
+  });
+
+  test("comments selects the comments, and not the definitions that own one", async () => {
+    const { states } = await statesOf(
+      {
+        target: "classes",
+        state: (self) => ({
+          inside: self.getElements("comments").map((comment) => comment.source),
+        }),
+      },
+      'class A:\n    """doc"""\n\n    # plain\n    def m(self):\n        """what m does"""\n',
+      "python",
+    );
+    expect(states as unknown).toEqual([{ inside: ['"""doc"""', "# plain"] }]);
+  });
+
+  test("a files target judges the file", async () => {
+    const { states } = await statesOf(
+      {
+        target: "files",
+        state: (file) => ({
+          same: file === file.file,
+          title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+          sections: file.getElement("markdown:h1").getElements("markdown:h2").length,
+        }),
+      },
+      PAGE,
+    );
+    expect(states as unknown).toEqual([{ same: true, title: "A page", sections: 2 }]);
+  });
+
+  test("a file rule follows its scope, and its finding covers the file", () => {
+    const rule = validateCustomRule(
+      {
+        name: "is_rule",
+        ...QUESTION,
+        target: "files",
+        include: ["docs/**"],
+        state: (file: CustomElement) => ({ text: file.source }),
+        handle: { warn: { greater_than: 0.5 } },
+      },
+      "jint.config.ts",
+    );
+    const paths = ["docs/a.astro", "src/b.ts"];
+    const resolved = resolveAllCustomTargets(
+      [rule],
+      new Map(paths.map((path) => [path, []])),
+      new Map(paths.map((path) => [path, "one\ntwo\n"])),
+    ).get(rule);
+    const targets = resolved !== undefined && "targets" in resolved ? resolved.targets : [];
+    expect(targets.map((t) => [t.path, t.id, t.capture, t.span.endByte])).toEqual([
+      ["docs/a.astro", "L1-L3", "file", 8],
+    ]);
+  });
+
+  test.each([
+    ["markdown:table", undefined, 'the h1 "A" has no markdown:table'],
+    ["markdown:h2", "D", 'the h1 "A" has no markdown:h2 named "D"'],
+    ["markdown:h2", undefined, 'the h1 "A" has 2 markdown:h2'],
+    ["files", undefined, 'the h1 "A" holds elements, and a file is not one of them'],
+    ["markdown:h22", undefined, 'does not emit "h22"'],
+  ])("element %p %p throws", async (target, name, message) => {
+    const { errors } = await statesOf(
+      { target: "markdown:h1", state: (h1) => ({ e: h1.getElement(target, name) }) },
+      PAGE,
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(message);
   });
 
   test("an element in a state is still valid JSON", async () => {
@@ -196,6 +338,6 @@ describe("a rule's question, at load", () => {
   });
 
   test("neither is refused", () => {
-    expect(load(QUESTION)).toThrow("missing state(self, ctx) or classify(self, ctx)");
+    expect(load(QUESTION)).toThrow("missing state(target) or classify(target)");
   });
 });

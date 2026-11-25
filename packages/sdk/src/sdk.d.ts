@@ -10,7 +10,6 @@ declare module "jint:sdk" {
   export type CustomElement = import("./core/rules/custom/schema.ts").CustomElement;
   export type RuleContext = import("./core/rules/custom/schema.ts").RuleContext;
   export type CustomFile = import("./core/rules/custom/schema.ts").CustomFile;
-  export type ClassifyContext = import("./core/rules/custom/schema.ts").ClassifyContext;
   export type StateSchema = import("./core/rules/custom/schema.ts").StateSchema;
   export type CustomHandleData = import("./core/rules/custom/schema.ts").CustomHandleData;
   export type CustomDecision = import("./core/rules/custom/schema.ts").CustomDecision;
