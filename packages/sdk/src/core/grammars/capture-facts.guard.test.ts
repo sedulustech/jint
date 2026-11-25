@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
-import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -17,9 +18,7 @@ import { join } from "node:path";
  * Every tripwire shape below has a PLANTED NEGATIVE TEST (red-verified: the collector must flag
  * each shape when it is genuinely present) - an unverified guard is a green light, not a guard.
  */
-// import.meta.dir = packages/sdk/src/core/grammars - FIVE ups to the repo root. The first draft
-// walked four (into packages/), every root silently failed readdir, and the guard passed
-// vacuously - the planted negatives caught it; they are load-bearing.
+// import.meta.dir is packages/sdk/src/core/grammars: five levels up is the repo root.
 const REPO = join(import.meta.dir, "..", "..", "..", "..", "..");
 // the tier-1 whitelist is a PATH, not a basename - a same-named file elsewhere is not the contract
 const TIER1 = join(import.meta.dir, "shared.ts");
@@ -65,9 +64,8 @@ const CONSERVATIVE: readonly { readonly name: string; readonly rx: RegExp }[] = 
 ];
 
 /**
- * A detector for the ENGINE's grammar sources only: capture-keyed object literals (unquoted keys -
- * the shape a dead PROJECTION dodged the first guard with). Too generic for the whole repo (`type:`
- * is a common innocent key outside the engine); inside grammars/ it is not.
+ * A detector for the engine's grammar sources only: capture-keyed object literals with unquoted
+ * keys. It is too generic for the whole repo, because `type:` is a common key outside the engine.
  */
 const AGGRESSIVE: readonly { readonly name: string; readonly rx: RegExp }[] = [
   {
@@ -81,8 +79,14 @@ export interface Offender {
   readonly detector: string;
 }
 
-/** Scan every source file under ROOTS (minus .test.ts and the tier-1 path). */
-async function collectOffenders(): Promise<Offender[]> {
+/**
+ * Scan every source file under `roots` (minus .test.ts and the tier-1 path); files under
+ * `strictDir` also get the grammar-only detectors.
+ */
+async function collectOffenders(
+  roots: readonly string[] = ROOTS,
+  strictDir: string = GRAMMARS,
+): Promise<Offender[]> {
   const offenders: Offender[] = [];
   async function walk(dir: string): Promise<void> {
     let entries;
@@ -97,13 +101,13 @@ async function collectOffenders(): Promise<Offender[]> {
         await walk(p);
       } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") && p !== TIER1) {
         const text = await readFile(p, "utf8");
-        const detectors = p.startsWith(GRAMMARS) ? [...CONSERVATIVE, ...AGGRESSIVE] : CONSERVATIVE;
+        const detectors = p.startsWith(strictDir) ? [...CONSERVATIVE, ...AGGRESSIVE] : CONSERVATIVE;
         for (const detector of detectors)
           if (detector.rx.test(text)) offenders.push({ file: p, detector: detector.name });
       }
     }
   }
-  for (const root of ROOTS) await walk(root);
+  for (const root of roots) await walk(root);
   return offenders;
 }
 
@@ -151,16 +155,18 @@ describe("capture-facts guard — capture behavior is a .scm directive, never an
   ];
   for (const plant of PLANTS) {
     test(`planted ${plant.shape} fires the guard (${plant.detector})`, async () => {
-      const probe = join(GRAMMARS, `planted-${plant.shape.replace(" ", "-")}.guard-probe.ts`);
+      // planted in a private dir: a probe inside the source tree is read by every other guard
+      const dir = await mkdtemp(join(tmpdir(), "capture-facts-probe-"));
+      const probe = join(dir, "planted.ts");
       try {
         await writeFile(probe, plant.code);
-        const offenders = await collectOffenders();
+        const offenders = await collectOffenders([dir], dir);
         expect(
           offenders.some((o) => o.file === probe && o.detector === plant.detector),
           FIX,
         ).toBe(true);
       } finally {
-        await rm(probe, { force: true });
+        await rm(dir, { recursive: true, force: true });
       }
     });
   }
