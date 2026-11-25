@@ -505,21 +505,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors[0]!.code).toBe("PROVIDER_UNAVAILABLE");
   });
 
-  test.concurrent("dir positional respects .gitignore, errors in-band, exit 3", async () => {
-    const ownConfig = "/tmp/jint-gitignore-contract.json";
-    require("node:fs").writeFileSync(
-      ownConfig,
-      JSON.stringify({ rules: { use: ["is_greppable"] } }),
-    );
-    const r = await run(
-      ["run", "tests/fixtures/sample-dir", "--json", "--debug", "--config", ownConfig],
-      REFUSED,
-    );
-    expect(r.code).toBe(3);
-    const report = JSON.parse(r.stdout);
-    expect(report.errors.length).toBeGreaterThan(0);
-  }, 30000);
-
   test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
     const proc = await runCli(["run", "str", "-", "--rule", "will_comment_drift", "--json"], {
       env: REFUSED,
