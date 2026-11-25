@@ -106,6 +106,7 @@ describe("shape corpora cover every element capture of every grammar", () => {
       "markdown",
       "php",
       "python",
+      "query",
       "toml",
       "tsx",
       "typescript",

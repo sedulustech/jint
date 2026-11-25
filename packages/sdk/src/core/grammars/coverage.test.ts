@@ -42,13 +42,14 @@ describe("what a capture missed", () => {
   });
 
   test("a capture of the caller's queries that matched nothing names its line", async () => {
-    const dir = project({
-      "a.md": "# A\n\nx\n",
-      "b.md": "y\n",
-      "my.scm":
-        '(paragraph) @prose (#set! "capture.prose.definition" "true")\n\n(html_block) @html (#set! "capture.html.definition" "true")\n',
-    });
-    const queries = join(dir, "my.scm");
+    const dir = project({ "a.md": "# A\n\nx\n", "b.md": "y\n" });
+    const queries = join(
+      project({
+        "my.scm":
+          '(paragraph) @prose (#set! "capture.prose.definition" "true")\n\n(html_block) @html (#set! "capture.html.definition" "true")\n',
+      }),
+      "my.scm",
+    );
     expect(await notesOf(dir, queries)).toEqual([`${queries}:3 @html matched nothing in 2 files`]);
   });
 });

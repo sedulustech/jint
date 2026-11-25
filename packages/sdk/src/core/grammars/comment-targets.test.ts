@@ -17,6 +17,7 @@ const SOURCES: Record<string, string> = {
   css: "/* css doc, no definitions in css */\nbody { color: red; }\n\n/* css loose */\n",
   go: "package p\n\n// go doc\nfunc Add(a int) int {\n  // inline note\n  return a\n}\n\n// go loose\n",
   json: '// json doc\n{ "a": 1 }\n\n// json loose\n',
+  query: "; query doc\n(add (a) @a) @add\n\n; query loose\n",
   toml: "# toml doc\na = 1\n\n# toml loose\n",
   yaml: "# yaml doc\na: 1\n\n# yaml loose\n",
   markdown: "# Title\n\nSome prose. Markdown has no comment capture (WAITING ledger).\n",

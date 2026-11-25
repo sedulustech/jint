@@ -1,5 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
@@ -120,6 +120,37 @@ describe("byog: the user-grammar seam end-to-end", () => {
     } finally {
       rmScratchTree(empty);
     }
+  });
+
+  const root = join(DIR, "grammar-directories");
+  const CANNOT_BE_READ: [string, () => string][] = [
+    ["does not exist", () => join(root, "missing")],
+    ["is a file", () => (writeFileSync(join(root, "file"), ""), join(root, "file"))],
+    [
+      "is unreadable",
+      () => (mkdirSync(join(root, "locked"), { mode: 0o000 }), join(root, "locked")),
+    ],
+  ];
+  test.each(CANNOT_BE_READ)("a grammar directory that %s stops the run", async (why, make) => {
+    if (why === "is unreadable" && process.getuid?.() === 0) return;
+    const dir = setup("no-grammars", []);
+    rmScratchTree(root);
+    mkdirSync(root, { recursive: true });
+    const grammars = make();
+    const r = await runCli(["capture", join(dir, "doc.md")], {
+      env: { JINT_GRAMMAR_DIR: grammars },
+    });
+    if (why === "is unreadable") chmodSync(grammars, 0o700);
+    expect(r.code).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr.trim()).not.toBe("");
+  });
+
+  test("the default grammar directory may be missing", async () => {
+    const dir = setup("default-grammars", []);
+    const r = await runCli(["capture", join(dir, "doc.md")], { env: { HOME: dir } });
+    expect(r.code).toBe(0);
+    expect(r.stdout.trim()).not.toBe("");
   });
 
   test("a capture only the EMBEDDED .scm emits is a loud setup failure under a shadow without it", async () => {

@@ -1237,11 +1237,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml, scm",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml · not parsed (no grammar): (extensionless), .ini",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml, scm · not parsed (no grammar): (extensionless), .ini",
     );
   });
 
@@ -1276,11 +1276,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml, scm",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml · not parsed (no grammar): (extensionless), .ini",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml, scm · not parsed (no grammar): (extensionless), .ini",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });

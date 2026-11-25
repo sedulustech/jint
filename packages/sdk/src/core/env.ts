@@ -52,7 +52,7 @@ export const ENV_VARS: readonly EnvVar[] = [
   {
     name: "JINT_GRAMMAR_DIR",
     default: "`~/.jint/grammars`",
-    meaning: "The directory of custom grammars.",
+    meaning: "The directory of custom grammars. A run stops when it names one that does not exist.",
   },
   {
     name: "JINT_WALK_WORKERS",
