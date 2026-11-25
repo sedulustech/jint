@@ -591,7 +591,7 @@
           "level": 3,
           "name": "JINT_GRAMMAR_DIR",
           "pills": [["default", "`~/.jint/grammars`"]],
-          "body": "The directory of custom grammars."
+          "body": "The directory of custom grammars. A run stops when it names one that does not exist."
         },
         {
           "id": "jint-walk-workers",

@@ -51,7 +51,7 @@ _default `~/.jint/cache`_
 
 ### `JINT_GRAMMAR_DIR`
 
-The directory of custom grammars.
+The directory of custom grammars. A run stops when it names one that does not exist.
 
 _default `~/.jint/grammars`_
 

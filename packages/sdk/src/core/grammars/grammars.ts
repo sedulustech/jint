@@ -213,9 +213,11 @@ export const EMBEDDED: GrammarRegistry = {
  * specific vars default FROM, specific always wins — never an umbrella tier.)
  */
 export function grammarsDir(): string {
-  return process.env.JINT_GRAMMAR_DIR !== undefined
-    ? process.env.JINT_GRAMMAR_DIR
-    : join(homedir(), ".jint", "grammars");
+  return process.env.JINT_GRAMMAR_DIR ?? defaultGrammarsDir();
+}
+
+function defaultGrammarsDir(): string {
+  return join(homedir(), ".jint", "grammars");
 }
 
 export function knownLanguages(registry: GrammarRegistry = EMBEDDED): string[] {
@@ -449,11 +451,12 @@ async function readCustomGrammar(
  * The grammar-dir scan, returned as a REGISTRY VALUE: the custom grammars under the dir merged over
  * the embedded base. THE SEAM IS ONE GRAMMAR PER DIR: each SUBDIRECTORY is one grammar, its id the
  * DIRECTORY NAME (nextjs-route semantics); a stray file at the root is a coverage note: artifacts
- * are flat INSIDE a grammar dir, never at the root. Missing dir scans as zero grammars (the
- * embedded base alone). A missing artifact, a malformed extensions.json, an empty or uncompilable
- * .scm, or a wasm whose export disagrees with the dir name throws CONFIG_INVALID - loud, at setup,
- * before any file is measured. The caller owns the value's lifetime: it lives and dies with the run
- * or call that asked for it.
+ * are flat INSIDE a grammar dir, never at the root. A missing DEFAULT dir scans as zero grammars
+ * (the embedded base alone); one that is named and missing, or that cannot be read, throws too. A
+ * missing artifact, a malformed extensions.json, an empty or uncompilable .scm, or a wasm whose
+ * export disagrees with the dir name throws CONFIG_INVALID - loud, at setup, before any file is
+ * measured. The caller owns the value's lifetime: it lives and dies with the run or call that asked
+ * for it.
  */
 export async function loadCustomGrammars(
   dir: string = grammarsDir(),
@@ -463,12 +466,12 @@ export async function loadCustomGrammars(
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch (err) {
-    // No grammar dir is the common case: the embedded base alone needs no note. A dir that
-    // exists but cannot be read is not absence - say so, because the run silently loses it.
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT" && code !== "ENOTDIR") {
-      process.emitWarning(
-        `jint: unreadable grammar dir ${dir}: ${String(err)}. Only the embedded grammars are used.`,
+    const isMissing = (err as NodeJS.ErrnoException).code === "ENOENT";
+    if (!isMissing || dir !== defaultGrammarsDir()) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `the grammar directory "${dir}" ${isMissing ? "does not exist" : "cannot be read"}`,
+        { cause: err },
       );
     }
     return EMBEDDED;

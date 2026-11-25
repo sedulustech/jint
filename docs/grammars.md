@@ -18,7 +18,8 @@ A grammar is a directory named for its id. It holds three files:
 The walker knows no node types. The `.scm` assigns [captures](captures.md), and the rest of jint
 sees only captures.
 
-Your own grammars live in `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`. Each subdirectory is one
+Your own grammars live in `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`. A run stops when
+the directory cannot be read, or when the one you name does not exist. Each subdirectory is one
 grammar. See [Bring your own grammar](byog.md).
 
 ## Embedded grammars
