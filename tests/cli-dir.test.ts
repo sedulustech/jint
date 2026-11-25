@@ -1,4 +1,4 @@
-import { describe, test, jest, expect } from "bun:test";
+import { describe, test, jest, expect, afterAll } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runCli, mockDecisionsEnv, hasLiveKey } from "./helpers/cli.ts";
@@ -9,13 +9,13 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
-// a key with no reachable provider: the run walks, transport failures stay in-band
-const NO_SERVICE = mockDecisionsEnv("http://127.0.0.1:1");
+// a provider that refuses every request: the run walks, the failures stay in-band
+const refusing = startMockDecisions({ status: 404 });
+afterAll(() => refusing.stop());
+const REFUSED = mockDecisionsEnv(refusing.baseUrl);
 
-// Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
-// every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
 async function run(args: string[], env: Record<string, string | undefined> = {}) {
-  return runCli(args, { env: { ...NO_SERVICE, ...env } });
+  return runCli(args, { env: { ...REFUSED, ...env } });
 }
 
 describe("cli: dir walk ignores", () => {
@@ -38,7 +38,7 @@ describe("cli: dir walk ignores", () => {
       const r = await runCli(
         ["run", join(tmpRoot, "src"), "--json", "--config", join(tmpRoot, "jint.config.json")],
         {
-          env: NO_SERVICE,
+          env: REFUSED,
         },
       );
       const report = JSON.parse(r.stdout);
@@ -54,7 +54,7 @@ describe("cli: dir walk ignores", () => {
       const human = await runCli(
         ["run", join(tmpRoot, "src"), "--config", join(tmpRoot, "jint.config.json")],
         {
-          env: NO_SERVICE,
+          env: REFUSED,
         },
       );
       expect(human.stderr).toContain(
@@ -124,7 +124,7 @@ describe("cli: dir walk ignores", () => {
       );
       const r = await runCli(
         ["run", join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
-        { env: NO_SERVICE },
+        { env: REFUSED },
       );
       expect(r.code).toBe(2);
       const report = JSON.parse(r.stdout);

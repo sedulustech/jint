@@ -24,8 +24,6 @@ import { rmScratchFile, scratchDir, scratchFile } from "./helpers/dir.ts";
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
-// Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
-// every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.
 // Generous ceiling: every run here boots a whole bun process, and on a loaded CI runner a
 // spawn alone has burned seconds before the CLI's own work starts.
 async function run(args: string[], env: Record<string, string | undefined> = {}) {
@@ -33,8 +31,10 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 }
 
 const NO_KEY = NO_KEY_ENV; // an empty key counts as absent
-// a key with no reachable provider: the run walks and classifies, transport failures stay in-band
-const NO_SERVICE = mockDecisionsEnv("http://127.0.0.1:1");
+// a provider that refuses every request: the run walks and classifies, the failures stay in-band
+const refusing = startMockDecisions({ status: 404 });
+afterAll(() => refusing.stop());
+const REFUSED = mockDecisionsEnv(refusing.baseUrl);
 
 afterEach(() => {
   delete process.env.NO_COLOR;
@@ -89,16 +89,13 @@ describe("cli: contract basics", () => {
   });
 
   test.concurrent("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", async () => {
-    const r = await run(["run", "nope/missing.ts"], NO_SERVICE);
+    const r = await run(["run", "nope/missing.ts"], REFUSED);
     expectContract(r, { exit: 2, stderr: "ENTRYPOINT_NOT_FOUND" });
     expect(r.stderr).not.toContain("measuring with");
   });
 
   test.concurrent("unknown --rule -> CONFIG_INVALID alone, no rubric pre-print", async () => {
-    const r = await run(
-      ["run", "--rule", "not_a_rule", "packages/sdk/src/core/types.ts"],
-      NO_SERVICE,
-    );
+    const r = await run(["run", "--rule", "not_a_rule", "packages/sdk/src/core/types.ts"], REFUSED);
     expectContract(r, { exit: 2, stderr: 'unknown rule "not_a_rule"' });
     expect(r.stderr).not.toContain("measuring with");
   });
@@ -113,7 +110,7 @@ describe("cli: contract basics", () => {
         "--config",
         "tests/fixtures/configs/scopes-open.json",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     expect(r.code).toBe(3);
     const attempted: string[] = [
@@ -185,7 +182,7 @@ describe("cli: contract basics", () => {
         "--",
         "tests/fixtures/dash-path/--weird.ts",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     expect(r.code).toBe(3); // reached classification: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
@@ -209,7 +206,7 @@ describe("cli: contract basics", () => {
         "--config",
         "tests/fixtures/configs/scopes-open.json",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     const b = await run(
       [
@@ -221,7 +218,7 @@ describe("cli: contract basics", () => {
         "--config",
         "tests/fixtures/configs/scopes-open.json",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     expect(a.code).toBe(b.code);
     const strip = (s: string) => {
@@ -242,7 +239,7 @@ describe("cli: contract basics", () => {
           "--config",
           "tests/fixtures/configs/scopes-open.json",
         ],
-        NO_SERVICE,
+        REFUSED,
       ),
       {
         exit: 2,
@@ -253,7 +250,7 @@ describe("cli: contract basics", () => {
 
   test.concurrent("piped stdout carries no escape codes (--help and reports)", async () => {
     expect((await run(["-h"])).stdout).not.toContain("\x1b");
-    const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
+    const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"], REFUSED);
     expect(r.stdout).not.toContain("\x1b");
   }, 30000);
 });
@@ -296,7 +293,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runCli(
       ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
       {
-        env: NO_SERVICE,
+        env: REFUSED,
         stdin: "tests/fixtures/sample-file.ts\n",
       },
     );
@@ -310,7 +307,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runCli(
       ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
       {
-        env: NO_SERVICE,
+        env: REFUSED,
         stdin: "tests/fixtures/sample-file.ts\nno/such/file.ts\n",
       },
     );
@@ -329,7 +326,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runCli(
       ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
       {
-        env: NO_SERVICE,
+        env: REFUSED,
         stdin: { file: list },
       },
     );
@@ -370,7 +367,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runCli(
       ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
       {
-        env: NO_SERVICE,
+        env: REFUSED,
         stdin: "no/such/a.ts\nno/such/b.ts\n",
       },
     );
@@ -392,7 +389,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("unknown --language: usage error exit 2 before any input is touched", async () => {
-    expectContract(await run(["run", "str", "-", "--language", "klingon"], NO_SERVICE), {
+    expectContract(await run(["run", "str", "-", "--language", "klingon"], REFUSED), {
       exit: 2,
       stderr: [
         "unknown language 'klingon'",
@@ -458,7 +455,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 
   test.concurrent("all units fail: exit 3 with the failures named on stderr", async () => {
     const proc = await runCli(["run", "str", "-", "--rule", "will_comment_drift"], {
-      env: NO_SERVICE,
+      env: mockDecisionsEnv("http://127.0.0.1:1"),
       stdin: "x",
     });
     expect(proc.code).toBe(3); // every unit failed -> the run failed (never exit 0)
@@ -467,7 +464,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("a patch file is just a file: MISSING_GRAMMAR, never decomposed (there is no diff noun)", async () => {
-    const r = await run(["run", "diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
+    const r = await run(["run", "diff", "tests/fixtures/sample.diff", "--json"], REFUSED);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("file not found: diff");
   });
@@ -481,12 +478,12 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         "--config",
         "tests/fixtures/configs/scopes-open.json",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     expectContract(r, { exit: 2, stderr: "MISSING_GRAMMAR" });
     expect(r.stderr).not.toContain("diff --git");
 
-    expectContract(await run(["run", "HEAD~1..HEAD", "--json"], NO_SERVICE), {
+    expectContract(await run(["run", "HEAD~1..HEAD", "--json"], REFUSED), {
       exit: 2,
       stderr: "ENTRYPOINT_NOT_FOUND",
     });
@@ -501,7 +498,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         "tests/fixtures/sample-file.ts",
         "--json",
       ],
-      NO_SERVICE,
+      REFUSED,
     );
     expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
@@ -516,7 +513,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     const r = await run(
       ["run", "tests/fixtures/sample-dir", "--json", "--debug", "--config", ownConfig],
-      NO_SERVICE,
+      REFUSED,
     );
     expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
@@ -525,7 +522,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 
   test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
     const proc = await runCli(["run", "str", "-", "--rule", "will_comment_drift", "--json"], {
-      env: NO_SERVICE,
+      env: REFUSED,
       stdin: { file: "tests/fixtures/sample.diff" },
     });
     expect(proc.code).toBe(3); // ran as ONE str unit; transport failure in-band
