@@ -40,6 +40,7 @@ const LANGUAGES: readonly { language: string; header: string; source: string }[]
   },
   { language: "json", header: "// h1\n// h2", source: '\n\n{\n// later\n"a": 1}\n' },
   { language: "yaml", header: "# h1\n# h2", source: "\n\na: 1\n# later\nb: 2\n" },
+  { language: "query", header: "; h1\n; h2", source: "\n\n(f) @f\n; later\n(a) @a\n" },
   { language: "toml", header: "# h1\n# h2", source: "\n\na = 1\n# later\nb = 2\n" },
 ];
 

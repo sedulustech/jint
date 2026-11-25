@@ -89,6 +89,9 @@ demands action.
   another element ends the run - blank lines and comments ride inside (capture merge
   "adjacent"); a leaf, so a loop's bindings are its implementation. A test construct stays a
   function.
+- **`query:definition`**, **`query:node`**, **`query:field`**, **`query:capture`** — the captures of a
+  queries.scm file: a pattern at the top of the file, a node inside a pattern, a `field:` of a node,
+  and an `@name` on a node. A node's name is its type and a capture's name is the text after its `@`.
 - **false positive rate**
   — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.

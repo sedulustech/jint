@@ -56,6 +56,9 @@ import phpScm from "./embedded/php/queries.scm" with { type: "text" };
 import pythonExtensions from "./embedded/python/extensions.json" with { type: "json" };
 import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
 import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
+import queryExtensions from "./embedded/query/extensions.json" with { type: "json" };
+import queryScm from "./embedded/query/queries.scm" with { type: "text" };
+import queryWasm from "./embedded/query/query.wasm" with { type: "file" };
 import tomlExtensions from "./embedded/toml/extensions.json" with { type: "json" };
 import tomlScm from "./embedded/toml/queries.scm" with { type: "text" };
 import tomlWasm from "./embedded/toml/toml.wasm" with { type: "file" };
@@ -189,6 +192,13 @@ export const EMBEDDED: GrammarRegistry = {
     extensions: yamlExtensions,
     wasmPath: yamlWasm,
     queries: yamlScm,
+    provenance: { source: "embedded" },
+  },
+  query: {
+    language: "query",
+    extensions: queryExtensions,
+    wasmPath: queryWasm,
+    queries: queryScm,
     provenance: { source: "embedded" },
   },
 };
@@ -344,10 +354,11 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
   let mod: WebAssembly.Module;
   try {
     mod = await WebAssembly.compile(new Uint8Array(await Bun.file(wasmPath).arrayBuffer()));
-  } catch {
+  } catch (cause) {
     throw new SetupError(
       "CONFIG_INVALID",
       `grammar ${grammarId}: ${wasmPath} is not a valid wasm module - the wasm must be a tree-sitter grammar whose export is tree_sitter_${grammarId}`,
+      { cause },
     );
   }
   // EXACT lookup, never first-match: multi-export wasms (tree-sitter-typescript ships tsx AND
@@ -366,42 +377,57 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
   }
 }
 
-async function readCustomGrammar(
+/** The grammar's queries.scm text; empty when the caller declared the file optional. */
+async function readQueries(
   grammarId: string,
   dir: string,
-  options: { readonly queriesOptional?: boolean } = {},
-): Promise<GrammarEntry> {
-  const queriesPath = join(dir, "queries.scm");
-  if (!(await Bun.file(queriesPath).exists()) && options.queriesOptional !== true) {
+  queriesOptional: boolean,
+): Promise<string> {
+  const queriesFile = Bun.file(join(dir, "queries.scm"));
+  const present = await queriesFile.exists();
+  if (!present && !queriesOptional) {
     throw new SetupError(
       "CONFIG_INVALID",
       `grammar ${grammarId}: queries.scm is missing - the .scm is the extraction half and the grammar's interface; there is no manifest to carry facts`,
     );
   }
-  const extensionsPath = join(dir, "extensions.json");
-  if (!(await Bun.file(extensionsPath).exists())) {
+  if (queriesOptional || !present) return "";
+  const queries = await queriesFile.text();
+  if (queries.trim() === "") {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${grammarId}: queries.scm is empty - it is the extraction half; an empty one compiles clean and extracts nothing`,
+    );
+  }
+  return queries;
+}
+
+/** The extensions a grammar dir routes, read from its extensions.json. */
+async function readRouting(grammarId: string, dir: string): Promise<string[]> {
+  const extensionsFile = Bun.file(join(dir, "extensions.json"));
+  if (!(await extensionsFile.exists())) {
     throw new SetupError(
       "CONFIG_INVALID",
       `grammar ${grammarId}: extensions.json is missing - routing is a bare JSON array of dot-prefixed extensions (e.g. [".md"])`,
     );
   }
-  const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
-  let queries = "";
-  if (options.queriesOptional !== true && (await Bun.file(queriesPath).exists())) {
-    queries = await Bun.file(queriesPath).text();
-    if (queries.trim() === "") {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `grammar ${grammarId}: queries.scm is empty - it is the extraction half; an empty one compiles clean and extracts nothing`,
-      );
-    }
-  }
+  return readExtensions(grammarId, await extensionsFile.text());
+}
+
+async function readCustomGrammar(
+  grammarId: string,
+  dir: string,
+  options: { readonly queriesOptional?: boolean } = {},
+): Promise<GrammarEntry> {
+  const queriesOptional = options.queriesOptional === true;
+  const queriesText = await readQueries(grammarId, dir, queriesOptional);
+  const extensions = await readRouting(grammarId, dir);
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
-  if (isExtension(queries)) {
-    queries = extendQueries(grammarId, queries, embeddedEntry?.queries ?? "");
-  }
+  const queries = isExtension(queriesText)
+    ? extendQueries(grammarId, queriesText, embeddedEntry?.queries ?? "")
+    : queriesText;
   if (!hasWasm && embeddedEntry === undefined) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -441,7 +467,8 @@ export async function loadCustomGrammars(
     // exists but cannot be read is not absence - say so, because the run silently loses it.
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== "ENOENT" && code !== "ENOTDIR") {
-      onNote?.(`grammar dir ${dir}: unreadable (${(err as Error).message}) - embedded set only`);
+      onNote?.(`grammar dir ${dir}: unreadable - embedded set only`);
+      process.emitWarning(new Error(`jint: unreadable grammar dir ${dir}`, { cause: err }));
     }
     return EMBEDDED;
   }

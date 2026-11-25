@@ -22,6 +22,7 @@ const LANGUAGES: readonly {
   { language: "bash", comment: (t) => `# ${t}`, code: "a=1" },
   { language: "yaml", comment: (t) => `# ${t}`, code: "a: 1" },
   { language: "toml", comment: (t) => `# ${t}`, code: "a = 1" },
+  { language: "query", comment: (t) => `; ${t}`, code: "(a) @a" },
 ];
 
 describe("comment runs: consecutive comment rows are one element in every grammar", () => {

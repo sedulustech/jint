@@ -40,12 +40,15 @@ grammar. See [Bring your own grammar](byog.md).
 | `json`       | `.json`, `.jsonc`                   |
 | `toml`       | `.toml`                             |
 | `yaml`       | `.yaml`, `.yml`                     |
+| `query`      | `.scm`                              |
 
 <!-- /generated:grammars -->
 
 Both `c` and `cpp` claim `.h`. Registration order decides, and `cpp` serves it.
 
 `css` captures comments only, because the code captures have no honest reading of css. `json`, `toml` and `yaml` are the same: data has no functions or types, so these grammars exist to route their files to `files` rules.
+
+`query` parses the tree-sitter query language, so jint can read the `queries.scm` files of its own grammars. It captures comments, each top-level pattern as a `definition`, and inside one pattern each `node`, `field` and `capture`. A node's name is its type and a capture's name is the text after its `@`, so a rule reads both without parsing text. A Scheme file also ends in `.scm` and goes to this grammar too: its comments are captured, and its forms read as patterns.
 
 Every grammar joins consecutive comment lines into one comment, so a multi-line `//` or `#` comment is judged whole. A blank line, code between two comments, or a comment at the end of a code line starts a new one. The comment that opens a file belongs to the file, not to a definition, and a `loose-comments` rule judges it. A comment directly above the first definition still documents that definition. [directives.md](directives.md) lists the `merge` and `docstring.owner` directives that set this.
 

@@ -19,3 +19,4 @@ Each wasm is the file attached to the upstream release of the same version. Comp
 | `json`       | [tree-sitter/tree-sitter-json](https://github.com/tree-sitter/tree-sitter-json/releases/tag/v0.24.8)                          | 0.24.8  | `d2119fb98d5912719b13f9458574f8608d2d29dfbe45f6be1f860ea1fe2a2405` |
 | `toml`       | [tree-sitter-grammars/tree-sitter-toml](https://github.com/tree-sitter-grammars/tree-sitter-toml/releases/tag/v0.7.0)         | 0.7.0   | `1ac6a83826c35a68857f8325e00c78f6bcbef4eb6db3931a6cf3041f76e5e09f` |
 | `yaml`       | [tree-sitter-grammars/tree-sitter-yaml](https://github.com/tree-sitter-grammars/tree-sitter-yaml/releases/tag/v0.7.2)         | 0.7.2   | `0a0e5ebcfeb0b2bf272d071396eeed107b2c4b2617b69d5959b13f78b357a4d6` |
+| `query`      | [tree-sitter-grammars/tree-sitter-query](https://github.com/tree-sitter-grammars/tree-sitter-query/releases/tag/v0.8.0)       | 0.8.0   | `c3458fa2de98b4470f3e650a43f7601c97a73eafc02cce553d7c430637f262b2` |
