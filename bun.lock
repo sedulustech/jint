@@ -74,6 +74,9 @@
     "packages/contract": {
       "name": "@jint/contract",
       "version": "0.1.0",
+      "dependencies": {
+        "@sinclair/typebox": "^0.34.52",
+      },
     },
     "packages/rules": {
       "name": "@jint/rules",

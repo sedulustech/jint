@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CAPTURE_ADDRESS } from "./capture-address.ts";
+import { CAPTURE_ADDRESS } from "@jint/contract/schema";
 import { EMBEDDED } from "./grammars.ts";
 import { assertCaptureAddress, scmCaptureDeclarations, scmEmittedNames } from "./query.ts";
 

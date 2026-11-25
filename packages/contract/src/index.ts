@@ -1,3 +1,3 @@
 export * from "./handlers.ts";
 export * from "./report.ts";
-export * from "./rule-schema.ts";
+export type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "./schema.ts";

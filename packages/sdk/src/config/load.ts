@@ -8,17 +8,16 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { RULE_TARGETS } from "@jint/contract";
+import { CHOICE_RULE_SCHEMA, NOUL_RULE_SCHEMA, RULE_SCHEMA } from "@jint/contract/schema";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { CAPTURE_ADDRESS } from "../core/grammars/capture-address.ts";
 import {} from "../core/grammars/grammars.ts";
 import {} from "../core/grammars/query.ts";
 import { closestName } from "../core/lint.ts";
 import { checkRunKnobs } from "../core/provider/pacer.ts";
 import { importConfigModule, noRulesAdvice } from "../core/rules/custom/loader.ts";
 import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
-import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
+import { compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";
 
@@ -34,131 +33,6 @@ export function findConfigFile(cwd = process.cwd()): string | null {
   }
   return null;
 }
-
-// A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
-// grammar-autonomous vocabulary (markdown's markdown:h2). Validated at lint
-// startup against the merged registry, never at config load.
-const CAPTURE_ADDRESS_SCHEMA = Type.String({
-  pattern: CAPTURE_ADDRESS.source,
-  description:
-    "A qualified capture address {grammar}:{capture} (e.g. markdown:h2): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
-});
-
-const TARGET_SCHEMA = Type.Union(
-  [
-    // derived from the runtime target list, never copied, so the schema cannot drift from it
-    ...RULE_TARGETS.map((target) => Type.Literal(target)),
-    CAPTURE_ADDRESS_SCHEMA,
-    Type.Array(
-      Type.Union([...RULE_TARGETS.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
-    ),
-  ],
-  {
-    description:
-      "What the rule measures: files, a kind of element, or a capture. A list measures each.",
-  },
-);
-
-// Per-rule scoping: glob lists over the walk's paths; exclude always wins. Contents
-// validated eagerly so the error names the exact field.
-const INCLUDE_SCHEMA = Type.Array(Type.String(), {
-  description: "Globs of the files this rule reads. It replaces the run include for this rule.",
-});
-const EXCLUDE_SCHEMA = Type.Array(Type.String(), {
-  description: "Globs of the files this rule skips. Exclude always wins over include.",
-});
-
-const OVERRIDE_SCHEMA = Type.Optional(
-  Type.Boolean({
-    description:
-      "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
-  }),
-);
-
-const INCLUDE_PATH_SCHEMA = Type.Optional(
-  Type.Boolean({
-    description:
-      "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.",
-  }),
-);
-
-// Discriminated on kind: noul rules carry {true,false}, score rules carry an ordered rubric
-// (>= two descriptions indexed by score 0..N), choice rules carry named options (>= two labels). kind stays optional in the noul branch (noul IS
-// the default; the loader fills it). The question and the handle are both REQUIRED (policy:
-// probes ship real questions and real handles) - a rule without its question would classify
-// under an invented prompt and silently recalibrate every classification.
-const NOUL_RULE_SCHEMA = Type.Object({
-  name: Type.String({
-    description:
-      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
-  }),
-  kind: Type.Optional(
-    Type.Literal("noul", { description: "The question type. Absent means noul." }),
-  ),
-  instructions: Type.String({
-    description:
-      "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every classification.",
-  }),
-  criteria: Type.Object(
-    {
-      true: Type.String({ description: "The condition for yes." }),
-      false: Type.String({ description: "The condition for no." }),
-    },
-    {
-      description:
-        "The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.",
-    },
-  ),
-  target: TARGET_SCHEMA,
-  handle: HANDLER_SCHEMA,
-  include: Type.Optional(INCLUDE_SCHEMA),
-  exclude: Type.Optional(EXCLUDE_SCHEMA),
-  includePath: INCLUDE_PATH_SCHEMA,
-  override: OVERRIDE_SCHEMA,
-});
-
-const SCORE_RULE_SCHEMA = Type.Object({
-  name: Type.String({
-    description:
-      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
-  }),
-  kind: Type.Literal("score", {
-    description: "The question type: a rating on the criteria scale.",
-  }),
-  criteria: Type.Array(Type.String(), {
-    minItems: 2,
-    description: "One description for each score level, from level 0 up.",
-  }),
-  instructions: Type.String({ description: "The question the model answers." }),
-  target: TARGET_SCHEMA,
-  handle: HANDLER_SCHEMA,
-  include: Type.Optional(INCLUDE_SCHEMA),
-  exclude: Type.Optional(EXCLUDE_SCHEMA),
-  includePath: INCLUDE_PATH_SCHEMA,
-  override: OVERRIDE_SCHEMA,
-});
-
-const CHOICE_RULE_SCHEMA = Type.Object({
-  name: Type.String({
-    description:
-      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
-  }),
-  kind: Type.Literal("choice", { description: "The question type: one option out of several." }),
-  criteria: Type.Record(Type.String(), Type.String(), {
-    minProperties: 2,
-    description:
-      "The named options: option label -> what selecting it means. Unordered; the model selects one.",
-  }),
-  instructions: Type.String({ description: "The question the model answers." }),
-  target: TARGET_SCHEMA,
-  handle: HANDLER_SCHEMA,
-  include: Type.Optional(INCLUDE_SCHEMA),
-  exclude: Type.Optional(EXCLUDE_SCHEMA),
-  includePath: INCLUDE_PATH_SCHEMA,
-  override: OVERRIDE_SCHEMA,
-});
-
-const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, SCORE_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
 
 /**
  * Schema of the config file's boundary — also emitted, verbatim, as the checked-in editor schema (a
