@@ -467,8 +467,9 @@ export async function loadCustomGrammars(
     // exists but cannot be read is not absence - say so, because the run silently loses it.
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== "ENOENT" && code !== "ENOTDIR") {
-      onNote?.(`grammar dir ${dir}: unreadable - embedded set only`);
-      process.emitWarning(new Error(`jint: unreadable grammar dir ${dir}`, { cause: err }));
+      process.emitWarning(
+        `jint: unreadable grammar dir ${dir}: ${String(err)}. Only the embedded grammars are used.`,
+      );
     }
     return EMBEDDED;
   }

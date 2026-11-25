@@ -1,5 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
@@ -121,6 +121,26 @@ describe("byog: the user-grammar seam end-to-end", () => {
       rmScratchTree(empty);
     }
   });
+
+  test.skipIf(process.getuid?.() === 0)(
+    "a grammar dir that cannot be read is a warning, and the embedded grammars still capture",
+    async () => {
+      const dir = setup("unreadable", []);
+      const grammars = scratchDir("jint-byog-unreadable");
+      chmodSync(grammars, 0o000);
+      try {
+        const r = await runCli(["capture", join(dir, "doc.md")], {
+          env: { JINT_GRAMMAR_DIR: grammars },
+        });
+        expect(r.code).toBe(0);
+        expect(r.stdout.trim()).not.toBe("");
+        expect(r.stderr).toMatch(/Warning: \S/);
+      } finally {
+        chmodSync(grammars, 0o755);
+        rmScratchTree(grammars);
+      }
+    },
+  );
 
   test("a capture only the EMBEDDED .scm emits is a loud setup failure under a shadow without it", async () => {
     const dir = setup("not-emitted", [noulRule("probe_missing", "markdown:paragraph")]);
