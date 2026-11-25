@@ -3,10 +3,7 @@
  * class), both output pipes drained concurrently (no pipe-buffer deadlock), and opt-in stdin as a
  * string, raw bytes, or a file path. Kill ceiling defaults to 60s: every run boots a whole bun
  * process and on a loaded CI runner a spawn alone can burn seconds before the CLI's own work
- * starts
- *
- * - The runner also runs the client's retry chain on purpose in the NO_SERVICE tests (~2s per
- *   request), so a tight ceiling kills healthy runs.
+ * starts.
  */
 import { join } from "node:path";
 import { resolveEndpoint } from "../../packages/sdk/src/core/provider/endpoint.ts";

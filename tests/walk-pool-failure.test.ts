@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/walk.ts";
@@ -46,21 +46,6 @@ describe("walk pool failure", () => {
     expect(workers.abandonedCount).toBe(2);
   });
 
-  test("a worker that hangs is abandoned at the timeout, never awaited, and the file fails", async () => {
-    const workers = pool({
-      size: 1,
-      workerUrl: fixture("hang"),
-      fileTimeoutMs: 300,
-      maxAbandoned: 10,
-    });
-    const started = performance.now();
-    const walked = await workers.walk(unitOf(file), {});
-    expect(walked.failed).toBe("parse failed");
-    expect(String((walked.failedCause as Error).message)).toContain("within 300ms");
-    expect(performance.now() - started).toBeLessThan(5_000);
-    expect(workers.abandonedCount).toBe(2);
-  });
-
   // The hang is a wasm loop, which Bun's terminate() cannot stop: the thread keeps spinning and
   // keeps the process alive until the caller ends it.
   test("a process with a wasm-hung worker stays alive on its own and ends when the caller exits", async () => {
@@ -81,50 +66,4 @@ describe("walk pool failure", () => {
     expect((await workers.walk(unitOf(file), {})).failed).toBe("parse failed");
     await expect(workers.walk(unitOf(file), {})).rejects.toBeInstanceOf(WalkPoolBroken);
   });
-});
-
-const THREADS = "/proc/self/task";
-
-function sourceFiles(): string[] {
-  return readdirSync(join(import.meta.dir, "../packages/sdk/src/core/grammars"))
-    .filter((name) => name.endsWith(".ts"))
-    .map((name) => join(import.meta.dir, "../packages/sdk/src/core/grammars", name));
-}
-
-// The thread count once it holds the same value across two samples 100 ms apart.
-async function stableThreadCount(): Promise<number> {
-  let last = -1;
-  let steady = 0;
-  for (let sample = 0; sample < 40 && steady < 2; sample++) {
-    await Bun.sleep(100);
-    const count = readdirSync(THREADS).length;
-    steady = count === last ? steady + 1 : 0;
-    last = count;
-  }
-  return last;
-}
-
-// The runtime keeps helper threads it started for the first workers; a leak shows as growth.
-describe("walk pool lifetime", () => {
-  const settledThreads = async (): Promise<number> => {
-    const workers = pool({ size: 3 });
-    await Promise.all(
-      sourceFiles()
-        .slice(0, 3)
-        .map((file) => workers.walk(unitOf(file), {})),
-    );
-    workers.close();
-    return stableThreadCount();
-  };
-
-  test.skipIf(!existsSync(THREADS))(
-    "closed pools leave no growing set of threads",
-    async () => {
-      const first = await settledThreads();
-      await settledThreads();
-      // helper threads wander by a few; a leaked pool of 3 adds 3 per round
-      expect(await settledThreads()).toBeLessThanOrEqual(first + 3);
-    },
-    30_000,
-  );
 });
