@@ -12,104 +12,36 @@
  * consulted - the two-sided suppression window that single comparison operators cannot express.
  */
 
-/** One graded criteria level, as declared in a ScoreHandler map. */
-export type HandlerLevel = "pass" | "warn" | "error";
+import type {
+  ChoiceHandlerData,
+  HandlerData,
+  HandlerLevel,
+  NoulHandlerData,
+  ScoreHandlerData,
+  ScoreTier,
+  ThresholdCondition,
+} from "./schema.ts";
 
-/**
- * One score-map tier: a level, optionally carrying the rule author's message - the finding's note
- * when the tier fires (author feedback, never classifier prose; absent = a bare finding).
- */
-export interface ScoreTier {
-  readonly level: HandlerLevel;
-  readonly message?: string;
-}
+export type {
+  ChoiceHandlerData,
+  HandlerData,
+  HandlerLevel,
+  NoulHandlerData,
+  ScoreHandlerData,
+  ScoreTier,
+  ThresholdCondition,
+} from "./schema.ts";
 
-/** The score-type handler: one tier per criteria entry, at least one non-"pass". */
-export interface ScoreHandlerData {
-  readonly map: readonly (HandlerLevel | ScoreTier)[];
-}
-
-/**
- * The tier for an undecided classification: it fires when the winning tier's probability leads the
- * runner-up tier's by less than `margin` (0 < margin < 1). The margin is in probability units, the
- * same units as the model's run-to-run variation (measured on jev, which varied between runs; luna
- * is deterministic), so it can be set from measured reruns.
- */
-export interface UndecidedTier extends ScoreTier {
-  readonly margin: number;
-}
-
-/**
- * The choice-type handler: one tier per named option, keyed by the option's label. The
- * classification groups the option probabilities by tier; the tier holding the most probability is
- * the verdict, and its most probable option supplies the message. Options are unordered - nothing
- * is averaged. An optional undecided tier fires instead when the top two tiers are too close to
- * call.
- */
-export interface ChoiceHandlerData {
-  readonly choices: Readonly<Record<string, HandlerLevel | ScoreTier>>;
-  readonly undecided?: UndecidedTier;
-}
-
-/** Normalize a map entry to its tier object. */
 export function asTier(entry: HandlerLevel | ScoreTier): ScoreTier {
   return typeof entry === "string" ? { level: entry } : entry;
 }
 
 /**
- * One threshold's comparison: exactly one operator, declared at the threshold. An optional message
- * is the rule author's feedback, attached at THIS tier - the finding's note when it fires.
+ * Which unit instances a rule judges: mapping an acquired file to units yields one whole-file
+ * slice, N definition elements, M standalone comment elements and 1 merged import element, and the
+ * target selects which of them the rule's question runs over.
  */
-export interface ThresholdCondition {
-  readonly greater_than?: number;
-  readonly less_than?: number;
-  readonly message?: string;
-}
-
-/** The noul-type handler: per-threshold operators (at least one tier), optional silent band. */
-export interface NoulHandlerData {
-  readonly warn?: ThresholdCondition;
-  readonly error?: ThresholdCondition;
-  /** Raw-p classifications inside [lo, hi] (inclusive) stay silent; absent = everything surfaces. */
-  readonly silent_band?: readonly [number, number];
-}
-
-/**
- * Which unit instances a rule judges (design.md §7.1): mapping an acquired file to units yields
- * target instances — one whole-file slice, N definition elements, M standalone comment elements, 1
- * merged import element — and the target selects which of them the rule's question runs over. The
- * vocabulary lives here (contract owns it); the engine and the defaults package import it.
- */
-export type SharedRuleTarget =
-  | "files"
-  | "functions"
-  | "classes"
-  | "methods"
-  | "types"
-  | "bindings"
-  | "definitions"
-  | "comments"
-  | "loose-comments"
-  | "imports";
-
-/**
- * A grammar-local target: {grammar}:{capture}, validated against the grammar's emitted captures at
- * lint startup (after custom-grammar registration). The TS face of the runtime's qualified capture
- * addresses; runtime-valid before this type existed - JSON configs used them already.
- */
-export type QualifiedRuleTarget = `${string}:${string}`;
-
-/**
- * The runtime face of SharedRuleTarget: one entry per union member, in union order. The type stays
- * the compile-time face (its exhaustive Record pin in handlers.test.ts fails to typecheck when a
- * member is added without a registration here); this array is what coverage checks iterate — a test
- * set that claims to exercise every target reads its list from here, not from a hand-copied literal
- * that can drift. Qualified targets are grammar-local and cannot be enumerated here; they join via
- * RuleTarget.
- */
-export type RuleTarget = SharedRuleTarget | QualifiedRuleTarget;
-
-export const RULE_TARGETS: readonly SharedRuleTarget[] = [
+export const RULE_TARGETS = [
   "files",
   "functions",
   "classes",
@@ -120,22 +52,29 @@ export const RULE_TARGETS: readonly SharedRuleTarget[] = [
   "comments",
   "loose-comments",
   "imports",
-];
+] as const;
 
-/** A declarative handler: exactly one of the three typed forms. */
-export type HandlerData = ScoreHandlerData | ChoiceHandlerData | NoulHandlerData;
+export type SharedRuleTarget = (typeof RULE_TARGETS)[number];
+
+/** A grammar-local target, {grammar}:{capture}, validated against the grammar's captures at startup. */
+export type QualifiedRuleTarget = `${string}:${string}`;
+
+export type RuleTarget = SharedRuleTarget | QualifiedRuleTarget;
 
 /** Severity is the only verdict vocabulary: a finding fires error or warn, or stays silent. */
 export type Severity = "error" | "warn";
 
-/** Type guard: is this handler data the score form? */
-export function isScoreHandler(data: HandlerData): data is ScoreHandlerData {
-  return "map" in data;
+/**
+ * The handler forms differ by key: a score handler holds `map`, a choice handler `choices`, a noul
+ * handler neither.
+ */
+export function isScoreHandler(handlerData: HandlerData): handlerData is ScoreHandlerData {
+  return "map" in handlerData;
 }
 
-/** Type guard: is this handler data the choice form? */
-export function isChoiceHandler(data: HandlerData): data is ChoiceHandlerData {
-  return "choices" in data;
+/** `choices` is the key the config file uses for a choice handler. */
+export function isChoiceHandler(handlerData: HandlerData): handlerData is ChoiceHandlerData {
+  return "choices" in handlerData;
 }
 
 /** Does one threshold condition fire at this value? Strict on the firing side. */
@@ -165,11 +104,11 @@ export function conditionFires(value: number, condition: ThresholdCondition): bo
  */
 export function handleSeverity(
   value: number,
-  data: HandlerData,
+  handlerData: HandlerData,
   choice?: string,
   probabilities?: Readonly<Record<string, number>>,
 ): Severity | null {
-  return handleTier(value, data, choice, probabilities)?.severity ?? null;
+  return handleTier(value, handlerData, choice, probabilities)?.severity ?? null;
 }
 
 /** The fired tier: a severity, the author's message, and whether the classification was undecided. */
@@ -181,13 +120,12 @@ export interface FiredTier {
 
 const TIER_ORDER: readonly HandlerLevel[] = ["pass", "warn", "error"];
 
-/** The probability mass per tier level: each option's probability summed into its tier. */
 export function choiceTierMass(
-  data: ChoiceHandlerData,
+  handlerData: ChoiceHandlerData,
   probabilities: Readonly<Record<string, number>>,
 ): Record<HandlerLevel, number> {
   const mass: Record<HandlerLevel, number> = { pass: 0, warn: 0, error: 0 };
-  for (const [label, entry] of Object.entries(data.choices)) {
+  for (const [label, entry] of Object.entries(handlerData.choices)) {
     mass[asTier(entry).level] += probabilities[label] ?? 0;
   }
   return mass;
@@ -200,28 +138,31 @@ export function choiceTierMass(
  * instead. Null = pass.
  */
 export function readChoice(
-  data: ChoiceHandlerData,
+  handlerData: ChoiceHandlerData,
   choice: string | undefined,
   probabilities: Readonly<Record<string, number>>,
 ): FiredTier | null {
-  const mass = choiceTierMass(data, probabilities);
+  const mass = choiceTierMass(handlerData, probabilities);
   const selectedLevel =
-    choice !== undefined && data.choices[choice] !== undefined
-      ? asTier(data.choices[choice]).level
+    choice !== undefined && handlerData.choices[choice] !== undefined
+      ? asTier(handlerData.choices[choice]).level
       : undefined;
   const ranked = [...TIER_ORDER].sort(
     (a, b) => mass[b] - mass[a] || Number(b === selectedLevel) - Number(a === selectedLevel),
   );
   const [top, second] = [ranked[0]!, ranked[1]!];
-  if (data.undecided !== undefined && mass[top] - mass[second] < data.undecided.margin) {
-    const tier = data.undecided;
+  if (
+    handlerData.undecided !== undefined &&
+    mass[top] - mass[second] < handlerData.undecided.margin
+  ) {
+    const tier = handlerData.undecided;
     return tier.level === "pass"
       ? null
       : { severity: tier.level, message: tier.message, undecided: true };
   }
   if (top === "pass") return null;
   // the message: the most probable option within the winning tier
-  const options = Object.entries(data.choices).filter(([, e]) => asTier(e).level === top);
+  const options = Object.entries(handlerData.choices).filter(([, e]) => asTier(e).level === top);
   const [, entry] = options.reduce((best, cur) =>
     (probabilities[cur[0]] ?? 0) > (probabilities[best[0]] ?? 0) ? cur : best,
   );
@@ -236,30 +177,30 @@ export function readChoice(
  */
 export function handleTier(
   value: number,
-  data: HandlerData,
+  handlerData: HandlerData,
   choice?: string,
   probabilities?: Readonly<Record<string, number>>,
 ): FiredTier | null {
-  if (isChoiceHandler(data)) {
-    if (probabilities !== undefined) return readChoice(data, choice, probabilities);
-    const entry = choice === undefined ? undefined : data.choices[choice];
+  if (isChoiceHandler(handlerData)) {
+    if (probabilities !== undefined) return readChoice(handlerData, choice, probabilities);
+    const entry = choice === undefined ? undefined : handlerData.choices[choice];
     if (entry === undefined) return null;
     const tier = asTier(entry);
     return tier.level === "pass" ? null : { severity: tier.level, message: tier.message };
   }
-  if (isScoreHandler(data)) {
+  if (isScoreHandler(handlerData)) {
     const index = Math.round(value);
-    if (!Number.isInteger(index) || index < 0 || index >= data.map.length) return null;
+    if (!Number.isInteger(index) || index < 0 || index >= handlerData.map.length) return null;
     // bounds checked above guarantee the tier
-    const tier = asTier(data.map[index]!);
+    const tier = asTier(handlerData.map[index]!);
     return tier.level === "pass" ? null : { severity: tier.level, message: tier.message };
   }
-  const band = data.silent_band;
+  const band = handlerData.silent_band;
   if (band !== undefined && value >= band[0] && value <= band[1]) return null;
-  if (data.error !== undefined && conditionFires(value, data.error))
-    return { severity: "error", message: data.error.message };
-  if (data.warn !== undefined && conditionFires(value, data.warn))
-    return { severity: "warn", message: data.warn.message };
+  if (handlerData.error !== undefined && conditionFires(value, handlerData.error))
+    return { severity: "error", message: handlerData.error.message };
+  if (handlerData.warn !== undefined && conditionFires(value, handlerData.warn))
+    return { severity: "warn", message: handlerData.warn.message };
   return null;
 }
 
@@ -272,10 +213,10 @@ export function handleTier(
 export function resolveScore(
   value: number,
   probabilities: Record<string, number> | undefined,
-  data: ScoreHandlerData,
+  handlerData: ScoreHandlerData,
 ): Severity | null {
   void probabilities;
-  return handleSeverity(value, data);
+  return handleSeverity(value, handlerData);
 }
 
 /**
@@ -285,10 +226,10 @@ export function resolveScore(
 export function resolveScoreTier(
   value: number,
   probabilities: Record<string, number> | undefined,
-  data: ScoreHandlerData,
+  handlerData: ScoreHandlerData,
 ): { readonly severity: Severity; readonly message?: string } | null {
   void probabilities;
-  return handleTier(value, data);
+  return handleTier(value, handlerData);
 }
 
 /**
@@ -296,19 +237,22 @@ export function resolveScoreTier(
  * one non-pass tier. Null when valid, otherwise the field name + problem.
  */
 export function checkChoiceHandler(
-  data: ChoiceHandlerData,
+  handlerData: ChoiceHandlerData,
   labels: readonly string[],
 ): string | null {
-  const declared = Object.keys(data.choices);
+  const declared = Object.keys(handlerData.choices);
   const missing = labels.filter((label) => !declared.includes(label));
   if (missing.length > 0) return `handle.choices: no tier for option(s) ${missing.join(", ")}`;
   const unknown = declared.filter((label) => !labels.includes(label));
   if (unknown.length > 0) return `handle.choices: ${unknown.join(", ")} is not an option label`;
-  if (Object.values(data.choices).every((entry) => asTier(entry).level === "pass")) {
+  if (Object.values(handlerData.choices).every((entry) => asTier(entry).level === "pass")) {
     return "handle.choices: at least one tier must be non-pass";
   }
-  if (data.undecided !== undefined && !(data.undecided.margin > 0 && data.undecided.margin < 1)) {
-    return `handle.undecided.margin: must be between 0 and 1 (the top tier's lead over the runner-up, in probability), got ${data.undecided.margin}`;
+  if (
+    handlerData.undecided !== undefined &&
+    !(handlerData.undecided.margin > 0 && handlerData.undecided.margin < 1)
+  ) {
+    return `handle.undecided.margin: must be between 0 and 1 (the top tier's lead over the runner-up, in probability), got ${handlerData.undecided.margin}`;
   }
   return null;
 }
@@ -332,33 +276,36 @@ export function checkCondition(condition: ThresholdCondition, field: string): st
  * caller prefixes rule id and source). Used by the JSON loader and the TS-rule loader so the two
  * tiers cannot drift.
  */
-export function checkNoulHandler(data: NoulHandlerData): string | null {
-  if (data.warn === undefined && data.error === undefined) {
+export function checkNoulHandler(handlerData: NoulHandlerData): string | null {
+  if (handlerData.warn === undefined && handlerData.error === undefined) {
     return "handle: must declare at least one tier (warn, error, or both)";
   }
-  if (data.warn !== undefined) {
-    const warnProblem = checkCondition(data.warn, "handle.warn");
+  if (handlerData.warn !== undefined) {
+    const warnProblem = checkCondition(handlerData.warn, "handle.warn");
     if (warnProblem !== null) return warnProblem;
   }
-  if (data.error !== undefined) {
-    const errorProblem = checkCondition(data.error, "handle.error");
+  if (handlerData.error !== undefined) {
+    const errorProblem = checkCondition(handlerData.error, "handle.error");
     if (errorProblem !== null) return errorProblem;
   }
-  if (data.warn !== undefined && data.error !== undefined) {
+  if (handlerData.warn !== undefined && handlerData.error !== undefined) {
     // both tiers: error must be the narrower region - same direction, ordered toward the defect
-    if (data.warn.greater_than !== undefined && data.error.greater_than !== undefined) {
-      if (data.warn.greater_than >= data.error.greater_than) {
-        return `handle.warn/error: greater_than thresholds must be ordered warn < error (error is the narrower region), got ${data.warn.greater_than} >= ${data.error.greater_than}`;
+    if (
+      handlerData.warn.greater_than !== undefined &&
+      handlerData.error.greater_than !== undefined
+    ) {
+      if (handlerData.warn.greater_than >= handlerData.error.greater_than) {
+        return `handle.warn/error: greater_than thresholds must be ordered warn < error (error is the narrower region), got ${handlerData.warn.greater_than} >= ${handlerData.error.greater_than}`;
       }
     }
-    if (data.warn.less_than !== undefined && data.error.less_than !== undefined) {
-      if (data.warn.less_than <= data.error.less_than) {
-        return `handle.warn/error: less_than thresholds must be ordered warn > error (error is the narrower region), got ${data.warn.less_than} <= ${data.error.less_than}`;
+    if (handlerData.warn.less_than !== undefined && handlerData.error.less_than !== undefined) {
+      if (handlerData.warn.less_than <= handlerData.error.less_than) {
+        return `handle.warn/error: less_than thresholds must be ordered warn > error (error is the narrower region), got ${handlerData.warn.less_than} <= ${handlerData.error.less_than}`;
       }
     }
   }
-  if (data.silent_band !== undefined) {
-    const [lo, hi] = data.silent_band;
+  if (handlerData.silent_band !== undefined) {
+    const [lo, hi] = handlerData.silent_band;
     if (lo >= hi) {
       return `handle.silent_band: must be ordered [lower, upper], got [${lo}, ${hi}]`;
     }
@@ -368,8 +315,8 @@ export function checkNoulHandler(data: NoulHandlerData): string | null {
       return "handle.silent_band: must not cover the whole scale (got [0, 1]) - everything would be silent";
     }
     for (const [field, condition] of [
-      ["warn", data.warn],
-      ["error", data.error],
+      ["warn", handlerData.warn],
+      ["error", handlerData.error],
     ] as const) {
       if (condition === undefined) continue;
       const at = condition.greater_than ?? condition.less_than;

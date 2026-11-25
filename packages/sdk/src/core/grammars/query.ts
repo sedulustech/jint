@@ -5,9 +5,7 @@
  *
  * Capture vocabulary (frozen for v1; a capture name is an identity, never a label):
  *
- * @function @method @class @type @binding @comment @import - what one element IS (singular) import
- *   { SHARED_LANES } from "./shared.ts"; import { CAPTURE_ADDRESS, CAPTURE_NAME } from
- *   "./capture-address.ts";
+ * @function @method @class @type @binding @comment @import - what one element IS (singular)
  * @name - the element's declared name (render-only; never an identity)
  *
  * Policy shipped with the typescript port (design: grammar-loading, evidence-first):
@@ -32,7 +30,7 @@
  */
 
 import { RULE_TARGETS } from "@jint/contract";
-import { CAPTURE_ADDRESS, CAPTURE_NAME } from "./capture-address.ts";
+import { CAPTURE_ADDRESS, CAPTURE_NAME } from "@jint/contract/schema";
 import {
   isSharedCapture,
   SHARED_ELEMENT_CAPTURES,

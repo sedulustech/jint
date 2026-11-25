@@ -4,7 +4,7 @@
  * as typed errors. Deciding severity is the handle callback's job, never this seam's.
  */
 
-import { CAPTURE_ADDRESS } from "../grammars/capture-address.ts";
+import { CAPTURE_ADDRESS } from "@jint/contract/schema";
 import {
   charsToTokens,
   fileElement,

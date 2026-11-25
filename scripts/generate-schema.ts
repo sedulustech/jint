@@ -37,12 +37,8 @@ import {
 import { RULE_TARGETS } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
-import {
-  CONTEXT_FIELDS,
-  ELEMENT_FIELDS,
-  FILE_FIELDS,
-  FUNCTION_FIELDS,
-} from "../packages/sdk/src/core/rules/custom/fields.ts";
+import { FUNCTION_FIELD_SCHEMAS } from "../packages/sdk/src/core/rules/custom/schema.ts";
+import { SHAPE_SCHEMAS } from "../packages/sdk/src/core/rules/custom/shape.ts";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
@@ -427,17 +423,17 @@ function fieldEntry(path: string, node: TableNode, required: boolean, within?: s
   };
 }
 
-/** The fields a rule's functions are written with or given, from the custom rule's own types. */
+/** The fields a rule's functions are written with or given, from the schemas that define them. */
 function customFieldEntries(
   within: string,
-  fields: Readonly<Record<string, readonly [type: string, meaning: string]>>,
+  fields: Readonly<Record<string, { description?: string; display?: string }>>,
 ): RefEntry[] {
-  return Object.entries(fields).map(([name, [type, body]]) => ({
+  return Object.entries(fields).map(([name, schema]) => ({
     id: `${within}-${name}`.toLowerCase(),
     level: 3,
     name,
-    pills: [type],
-    body,
+    pills: [schema.display ?? ""],
+    body: schema.description ?? "",
   }));
 }
 
@@ -491,23 +487,23 @@ export function configSections(): RefSection[] {
       title: "Rule function fields",
       intro:
         "Functions, so they work only in `jint.config.ts`. A JSON config cannot compose a state yet: one with a `state` or `classify` field is an error.",
-      entries: customFieldEntries("function", FUNCTION_FIELDS),
+      entries: customFieldEntries("function", FUNCTION_FIELD_SCHEMAS),
     },
     {
       title: "Element fields",
       intro: "The `self` a function is given: one captured element.",
-      entries: customFieldEntries("element", ELEMENT_FIELDS),
+      entries: customFieldEntries("element", SHAPE_SCHEMAS.element.properties),
     },
     {
       title: "Context fields",
       intro: "The `ctx` of `handle`.",
-      entries: customFieldEntries("context", CONTEXT_FIELDS),
+      entries: customFieldEntries("context", SHAPE_SCHEMAS.context.properties),
     },
     {
       title: "File fields",
       intro:
         "The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.",
-      entries: customFieldEntries("file", FILE_FIELDS),
+      entries: customFieldEntries("file", SHAPE_SCHEMAS.file.properties),
     },
   ];
 }

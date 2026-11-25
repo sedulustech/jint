@@ -6,105 +6,155 @@
  * enforcement (the editor types are DX only — the runtime does NOT typecheck).
  */
 
-import { Type, type Static } from "@sinclair/typebox";
+import { RULE_TARGETS } from "@jint/contract";
+import {
+  CAPTURE_ADDRESS_SCHEMA,
+  CONDITION_SCHEMA,
+  NOUL_HANDLER_SCHEMA,
+  RULE_BASE_SCHEMA,
+  NOUL_RULE_SCHEMA,
+  readonlyList,
+} from "@jint/contract/schema";
+import { Type, type Static, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { CAPTURE_ADDRESS } from "../../grammars/capture-address.ts";
 import { checkRuleScope } from "../../scope.ts";
-import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
-import { checkNoulHandler, CONDITION_SCHEMA, NOUL_HANDLER_SCHEMA } from "../handle.ts";
-import type { InventoryElement } from "../../grammars/walk.ts";
+import { SetupError, type RuleResult } from "../../types.ts";
+import { checkNoulHandler } from "../handle.ts";
+import { functionField, type CustomElement, type RuleContext } from "./shape.ts";
 
-/** How a rule picks captured elements: those directly inside an element, or at the top of a file. */
-export interface ElementSelection {
-  /**
-   * The one element a selector matches, with this name when one is given. It throws when there is
-   * none, or more than one.
-   */
-  readonly getElement: (target: string, name?: string) => CustomElement;
-  /** Every element a selector matches, or every element without one, in file order. */
-  readonly getElements: (target?: string) => readonly CustomElement[];
-}
+export type { CustomElement, CustomFile, ElementSelection, RuleContext } from "./shape.ts";
 
-/**
- * The element a rule sees: what the walk found, in its file, linked to the elements around it.
- * Every field of the walk's element reaches a rule unless it is left out here.
- */
-export interface CustomElement
-  extends
-    ElementSelection,
-    Omit<InventoryElement, "content" | "nodeType" | "oversized" | "parent"> {
-  /** The file the element is in. */
-  readonly path: string;
-  /** The element's text, less what its grammar omits from the capture. */
-  readonly source: string;
-  /** The enclosing element, when this element sits inside one; null at the top level. */
-  readonly parent: CustomElement | null;
-  /** The file the element sits in; a file's own is itself. */
-  readonly file: CustomFile;
-}
+const QUESTION_FIELDS = {
+  instructions: NOUL_RULE_SCHEMA.properties.instructions,
+  criteria: NOUL_RULE_SCHEMA.properties.criteria,
+};
 
-/** The rule's environment, assembled by the engine after target resolution. */
-export interface RuleContext {
-  /**
-   * The resolved elements for this rule, in walk order — positionally paired with the rule's
-   * results.
-   */
-  readonly targets: readonly CustomElement[];
-}
+const QUESTION_SCHEMA = Type.Object(QUESTION_FIELDS);
 
-/**
- * A file, as the walk saw it. It is the element a file rule judges, and the file every other
- * element sits in.
- */
-export interface CustomFile extends CustomElement {
-  readonly definitions: readonly CustomElement[];
-  readonly comments: readonly CustomElement[];
-  readonly imports: readonly CustomElement[];
-}
+const SPEC_SCHEMA = Type.Object({
+  ...QUESTION_FIELDS,
+  state: Type.Record(Type.String(), Type.Unknown()),
+});
 
 /**
  * One compiled judgment. jint schema-validates the spec, applies per-part size backstops,
  * serializes it, and calls the provider — the rule NEVER sees the classifier. Composition is free;
  * observability (the recorded requests) is the guarantee.
  */
-export interface StateSchema {
-  readonly instructions: string;
-  readonly criteria: { readonly true: string; readonly false: string };
-  readonly state: Record<string, unknown>;
-}
+export interface StateSchema extends Readonly<Static<typeof SPEC_SCHEMA>> {}
 
-export type CustomHandleData = import("@jint/contract").NoulHandlerData;
+const DECISION_SCHEMA = Type.Object({
+  severity: Type.Union([Type.Literal("error"), Type.Literal("warn"), Type.Null()], {
+    description: "Null: the result stays a classification and raises no finding.",
+  }),
+  message: Type.Optional(
+    Type.String({
+      description:
+        "An instruction to the caller fixing the finding, rendered beneath the finding line.",
+    }),
+  ),
+});
 
 /** One policy decision, positionally paired with the rule's results: what becomes a finding. */
-export interface CustomDecision {
-  /** No severity: the result stays a classification and raises no finding. */
-  readonly severity: "error" | "warn" | null;
-  /**
-   * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity says
-   * whether, message says how. Rendered beneath the finding line; schema-validated.
-   */
-  readonly message?: string;
-}
+export interface CustomDecision extends Readonly<Static<typeof DECISION_SCHEMA>> {}
+
+export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
 /** The part of a state a rule composes for one element; a part with no value is left out. */
 export type ComposeState = (target: CustomElement) => Readonly<Record<string, unknown>>;
 
+const STRICT_CONDITION = Type.Union(
+  CONDITION_SCHEMA.anyOf.map((c) => Type.Object(c.properties, { additionalProperties: false })),
+);
+
+// The JSON tier's noul handler, with no other key: a { warn, map } hybrid is rejected at load.
+// checkNoulHandler names a handle that has neither warn nor error.
+const STRICT_HANDLE_SCHEMA = Type.Object(
+  {
+    ...NOUL_HANDLER_SCHEMA.properties,
+    warn: Type.Optional(STRICT_CONDITION),
+    error: Type.Optional(STRICT_CONDITION),
+  },
+  { additionalProperties: false },
+);
+
+const roleLiterals = RULE_TARGETS.map((role) => Type.Literal(role));
+
+const TARGET_FUNCTION_SCHEMA = functionField<
+  (elements: readonly CustomElement[]) => readonly CustomElement[]
+>({
+  description: "Chooses the elements to judge. It is given every element of the run.",
+  display: "(elements) => elements",
+});
+
+const HANDLE_FUNCTION_SCHEMA = functionField<
+  (results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]
+>({
+  description:
+    "Decides the severity of each result, after every element is classified. A null severity raises no finding.",
+  display: "(results, ctx) => decisions",
+});
+
+const STATE_FUNCTION_SCHEMA = functionField<ComposeState>({
+  description:
+    "Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only.",
+  display: "(target) => object",
+});
+
+const CLASSIFY_FUNCTION_SCHEMA = functionField<(target: CustomElement) => StateSchema>({
+  description:
+    "Composes the question too, when it changes from one element to the next. A rule has state or classify, never both.",
+  display: "(target) => { instructions, criteria, state }",
+});
+
+/**
+ * The fields only a TypeScript config can hold. The target and handle fields add a function form to
+ * the data form the declarative rule takes.
+ */
+export const FUNCTION_FIELD_SCHEMAS = {
+  state: STATE_FUNCTION_SCHEMA,
+  classify: CLASSIFY_FUNCTION_SCHEMA,
+  target: TARGET_FUNCTION_SCHEMA,
+  handle: HANDLE_FUNCTION_SCHEMA,
+};
+
+const CUSTOM_BASE_SCHEMA = Type.Object({
+  name: Type.String({
+    minLength: 1,
+    description: RULE_BASE_SCHEMA.properties.name.description,
+  }),
+  kind: NOUL_RULE_SCHEMA.properties.kind,
+  target: Type.Union([
+    ...roleLiterals,
+    CAPTURE_ADDRESS_SCHEMA,
+    readonlyList(Type.Union([...roleLiterals, CAPTURE_ADDRESS_SCHEMA]), {
+      minItems: 1,
+    }),
+    TARGET_FUNCTION_SCHEMA,
+  ]),
+  include: RULE_BASE_SCHEMA.properties.include,
+  exclude: RULE_BASE_SCHEMA.properties.exclude,
+  handle: Type.Union([Type.Unsafe<CustomHandleData>(STRICT_HANDLE_SCHEMA), HANDLE_FUNCTION_SCHEMA]),
+});
+
+const COMPOSED_SCHEMA = Type.Object({
+  ...QUESTION_FIELDS,
+  state: STATE_FUNCTION_SCHEMA,
+  classify: Type.Optional(Type.Undefined()),
+});
+
+const CLASSIFIED_SCHEMA = Type.Object({
+  classify: CLASSIFY_FUNCTION_SCHEMA,
+  state: Type.Optional(Type.Undefined()),
+  instructions: Type.Optional(Type.Undefined()),
+  criteria: Type.Optional(Type.Undefined()),
+});
+
 /** A question that is the same for every element, and the state that differs. */
-export interface ComposedQuestion {
-  readonly instructions: string;
-  readonly criteria: { readonly true: string; readonly false: string };
-  readonly state: ComposeState;
-  readonly classify?: undefined;
-}
+export interface ComposedQuestion extends Readonly<Static<typeof COMPOSED_SCHEMA>> {}
 
 /** A question composed per element, its state included. */
-export interface ClassifiedQuestion {
-  /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (target: CustomElement) => StateSchema;
-  readonly state?: undefined;
-  readonly instructions?: undefined;
-  readonly criteria?: undefined;
-}
+export interface ClassifiedQuestion extends Readonly<Static<typeof CLASSIFIED_SCHEMA>> {}
 
 /**
  * A custom rule: name, target (the REQUEST), the question it asks of each element, and its one
@@ -114,39 +164,7 @@ export interface ClassifiedQuestion {
  */
 export type CustomRule = CustomRuleBase & (ComposedQuestion | ClassifiedQuestion);
 
-export interface CustomRuleBase {
-  readonly name: string;
-  readonly kind?: "noul";
-  readonly target:
-    | "files"
-    | `${string}:${string}`
-    | "functions"
-    | "classes"
-    | "methods"
-    | "types"
-    | "bindings"
-    | "definitions"
-    | "comments"
-    | "loose-comments"
-    | "imports"
-    | readonly string[]
-    | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-  /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
-  readonly include?: readonly string[];
-  /** Per-rule scoping: glob list; ALWAYS wins over include. */
-  readonly exclude?: readonly string[];
-  /**
-   * The rule's policy — REQUIRED, exactly one per rule, in one of two encodings. Data is the
-   * declarative form (JSON-expressible: the typed noul handler, per-threshold comparison
-   * operators); a function is the TS-only escape hatch, called ONCE after all classifications
-   * (results[i] <-> ctx.targets[i]) and returns one decision per result, aligned by index. The
-   * field either is data or is a function, never both; a classification-only rule returns [] (or
-   * all-null severities) from the function form.
-   */
-  readonly handle:
-    | CustomHandleData
-    | ((results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]);
-}
+export interface CustomRuleBase extends Readonly<Static<typeof CUSTOM_BASE_SCHEMA>> {}
 
 /**
  * A TS config's shape: the same keys a top-level config takes (the config boundary validates it),
@@ -171,54 +189,12 @@ export interface TsConfig {
   readonly charsPerToken?: number;
 }
 
-export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
-  "files",
-  "functions",
-  "classes",
-  "methods",
-  "types",
-  "bindings",
-  "definitions",
-  "comments",
-  "loose-comments",
-  "imports",
-];
-
-// The JSON tier's noul handler, with no other key: a { warn, map } hybrid is rejected at load.
-// checkNoulHandler names a handle that has neither warn nor error.
-const CONDITION = Type.Union(
-  CONDITION_SCHEMA.anyOf.map((c) => Type.Object(c.properties, { additionalProperties: false })),
-);
-const HANDLE_SCHEMA = Type.Object(
-  {
-    ...NOUL_HANDLER_SCHEMA.properties,
-    warn: Type.Optional(CONDITION),
-    error: Type.Optional(CONDITION),
-  },
-  { additionalProperties: false },
-);
-
-const SPEC_SCHEMA = Type.Object({
-  instructions: Type.String(),
-  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
-  state: Type.Record(Type.String(), Type.Unknown()),
-});
-
-const DECISION_SCHEMA = Type.Object({
-  severity: Type.Union([Type.Literal("error"), Type.Literal("warn"), Type.Null()]),
-  message: Type.Optional(Type.String()),
-});
-
 /**
  * The runtime does NOT typecheck, so the spec is validated here: a violation throws a plain
  * contract-violation Error, which the engine catches per call and streams as a named per-unit
  * failure (run-time, non-fatal).
  */
-export function validateStateSpec(
-  spec: unknown,
-  ruleName: string,
-  element: string,
-): Static<typeof SPEC_SCHEMA> {
+export function validateStateSpec(spec: unknown, ruleName: string, element: string): StateSchema {
   if (!Value.Check(SPEC_SCHEMA, spec)) {
     const messages = [...Value.Errors(SPEC_SCHEMA, spec)]
       .map((err) => (err.path === "" ? "/" : err.path) + " " + err.message)
@@ -232,7 +208,7 @@ export function validateStateSpec(
         messages,
     );
   }
-  return spec as Static<typeof SPEC_SCHEMA>;
+  return spec as StateSchema;
 }
 
 /** Validates one callback-handle decision; throws a contract-violation Error (see above). */
@@ -240,7 +216,7 @@ export function validateDecision(
   decision: unknown,
   ruleName: string,
   index: number,
-): Static<typeof DECISION_SCHEMA> {
+): CustomDecision {
   if (!Value.Check(DECISION_SCHEMA, decision)) {
     throw new Error(
       'custom rule "' +
@@ -250,7 +226,7 @@ export function validateDecision(
         ' — expected { severity: "error" | "warn" | null, message? }',
     );
   }
-  return decision as Static<typeof DECISION_SCHEMA>;
+  return decision as CustomDecision;
 }
 
 /** The targets a rule names, which a target function has none of. */
@@ -259,38 +235,18 @@ export function targetNamesOf({ target }: Pick<CustomRule, "target">): readonly 
   return typeof target === "string" ? [target] : target;
 }
 
-function isRole(t: unknown): boolean {
-  return typeof t === "string" && (CUSTOM_TARGET_ROLES as readonly string[]).includes(t);
-}
-
-// THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
-// autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
-// themselves are validated at lint startup against the merged registry - this check is shape-only.
-
-function isTargetable(t: unknown): boolean {
-  return typeof t === "string" && (isRole(t) || CAPTURE_ADDRESS.test(t));
-}
-
-function validTarget(target: CustomRule["target"]): boolean {
-  return (
-    typeof target === "function" ||
-    isTargetable(target) ||
-    (Array.isArray(target) && target.length > 0 && target.every((t) => isTargetable(t)))
-  );
-}
-const QUESTION_SCHEMA = Type.Object({
-  instructions: Type.String(),
-  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
-});
+const isFunction = (schema: TSchema, value: unknown): boolean => Value.Check(schema, value);
 
 function checkQuestion(rule: Record<string, unknown>): string | null {
-  if (typeof rule.classify === "function") {
+  if (isFunction(FUNCTION_FIELD_SCHEMAS.classify, rule.classify)) {
     const extra = ["state", "instructions", "criteria"].find((key) => rule[key] !== undefined);
     return extra === undefined
       ? null
       : `${extra} and classify - classify returns all of the question`;
   }
-  if (typeof rule.state !== "function") return "missing state(target) or classify(target)";
+  if (!isFunction(FUNCTION_FIELD_SCHEMAS.state, rule.state)) {
+    return "missing state(target) or classify(target)";
+  }
   return Value.Check(QUESTION_SCHEMA, rule)
     ? null
     : "state needs instructions and criteria { true, false } beside it";
@@ -299,8 +255,8 @@ function checkQuestion(rule: Record<string, unknown>): string | null {
 /** A callback rule asks its question through a function; a declarative rule has none. */
 export function isCustomRule(rule: object): rule is CustomRule {
   return (
-    ("classify" in rule && typeof rule.classify === "function") ||
-    ("state" in rule && typeof rule.state === "function")
+    ("classify" in rule && isFunction(FUNCTION_FIELD_SCHEMAS.classify, rule.classify)) ||
+    ("state" in rule && isFunction(FUNCTION_FIELD_SCHEMAS.state, rule.state))
   );
 }
 
@@ -310,9 +266,11 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
   };
   if (typeof rule !== "object" || rule === null) fail("rules[] entry is not an object");
   const r = rule as Record<string, unknown>;
-  if (typeof r.name !== "string" || r.name === "") fail('rule has no "name" (non-empty string)');
-  const name = r.name;
-  if (r.kind !== undefined && r.kind !== "noul") {
+  if (!Value.Check(CUSTOM_BASE_SCHEMA.properties.name, r.name)) {
+    fail('rule has no "name" (non-empty string)');
+  }
+  const name = r.name as string;
+  if (r.kind !== undefined && !Value.Check(CUSTOM_BASE_SCHEMA.properties.kind, r.kind)) {
     fail(
       '"' +
         name +
@@ -321,12 +279,12 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
         '" is not supported in custom rules yet (noul only)',
     );
   }
-  if (!validTarget(r.target as CustomRule["target"])) {
+  if (!Value.Check(CUSTOM_BASE_SCHEMA.properties.target, r.target)) {
     fail(
       '"' +
         name +
         '": invalid target — expected one of ' +
-        CUSTOM_TARGET_ROLES.join(", ") +
+        RULE_TARGETS.join(", ") +
         ", a non-empty list of them, or an (elements) => Element[] function",
     );
   }
@@ -348,15 +306,13 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
         '": handle is required — every custom rule has exactly one policy (data or a (results, ctx) => decisions function)',
     );
   }
-  if (typeof handle === "function") {
-    // callback arm: its shape is the engine's run-time contract, nothing to check at load
-  } else if (!Value.Check(HANDLE_SCHEMA, handle)) {
+  if (!Value.Check(CUSTOM_BASE_SCHEMA.properties.handle, handle)) {
     fail(
       '"' +
         name +
         '": handle must be the typed noul handler { warn?, error?, silent_band? } (at least one of warn/error, each { greater_than | less_than, message? }) or a (results, ctx) => decisions function',
     );
-  } else {
+  } else if (!isFunction(HANDLE_FUNCTION_SCHEMA, handle)) {
     const h = handle as CustomHandleData;
     // custom rules are noul-only, so the question type is fixed: a score map is a tier-mismatch,
     // rejected here exactly as the declarative tier rejects it.

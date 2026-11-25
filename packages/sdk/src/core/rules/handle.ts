@@ -14,7 +14,6 @@
  */
 
 import { checkChoiceHandler, checkNoulHandler, type HandlerData } from "@jint/contract";
-import { Type } from "@sinclair/typebox";
 import { InternalError, SetupError, type HandleOutcome, type RuleKind } from "../types.ts";
 // The taxonomy and the pure evaluation live in the contract package (one definition, shared with
 // the classification UI); the engine owns only the compiled seams (handle data -> function).
@@ -85,115 +84,6 @@ export function compileChoiceHandler(data: ChoiceHandlerData): Handle {
     return handleTier(answer.value, data, answer.choice, answer.probabilities);
   };
 }
-
-const LEVEL_SCHEMA = Type.Union(
-  [Type.Literal("pass"), Type.Literal("warn"), Type.Literal("error")],
-  { description: "The severity of a finding: pass raises none." },
-);
-
-const SCORE_TIER_SCHEMA = Type.Union([
-  LEVEL_SCHEMA,
-  Type.Object({
-    level: LEVEL_SCHEMA,
-    message: Type.Optional(
-      Type.String({
-        description: "The rule author's feedback; the finding's note when this tier fires.",
-      }),
-    ),
-  }),
-]);
-
-const SCORE_HANDLER_SCHEMA = Type.Object(
-  {
-    map: Type.Array(SCORE_TIER_SCHEMA, {
-      minItems: 1,
-      description: "One tier for each score level, in the order of the criteria.",
-    }),
-  },
-  {
-    description:
-      "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
-  },
-);
-
-const CHOICE_HANDLER_SCHEMA = Type.Object(
-  {
-    choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA, {
-      description: "One tier for each option, keyed by the option label.",
-    }),
-    undecided: Type.Optional(
-      Type.Object(
-        {
-          margin: Type.Number({
-            description:
-              "The gap between the two likeliest options under which the value is undecided.",
-          }),
-          level: LEVEL_SCHEMA,
-          message: Type.Optional(
-            Type.String({ description: "The note on the finding of an undecided value." }),
-          ),
-        },
-        { description: "The tier of a value with no clear winner among the options." },
-      ),
-    ),
-  },
-  {
-    description:
-      "Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { margin, level, message? }: when the top tier's probability leads the runner-up tier's by less than `margin` (between 0 and 1), this tier fires instead - an undecided classification the rule acts on like any other tier.",
-  },
-);
-
-export const CONDITION_SCHEMA = Type.Union(
-  [
-    Type.Object(
-      {
-        greater_than: Type.Number({ description: "The threshold. A value above it fires." }),
-        message: Type.Optional(
-          Type.String({
-            description: "The rule author's feedback; the finding's note when this tier fires.",
-          }),
-        ),
-      },
-      { description: "Fires when the raw value is strictly greater." },
-    ),
-    Type.Object(
-      {
-        less_than: Type.Number({ description: "The threshold. A value below it fires." }),
-        message: Type.Optional(
-          Type.String({
-            description: "The rule author's feedback; the finding's note when this tier fires.",
-          }),
-        ),
-      },
-      { description: "Fires when the raw value is strictly less." },
-    ),
-  ],
-  {
-    description:
-      "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
-  },
-);
-
-export const NOUL_HANDLER_SCHEMA = Type.Object(
-  {
-    warn: Type.Optional(CONDITION_SCHEMA),
-    error: Type.Optional(CONDITION_SCHEMA),
-    silent_band: Type.Optional(
-      Type.Tuple([Type.Number(), Type.Number()], {
-        description: "A [low, high] range of values that raises no finding.",
-      }),
-    ),
-  },
-  {
-    description:
-      "Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p classifications inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.",
-  },
-);
-
-export const HANDLER_SCHEMA = Type.Union(
-  [SCORE_HANDLER_SCHEMA, CHOICE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA],
-  { description: "How a value becomes a finding. The shape follows the kind of the rule." },
-);
 
 /**
  * The handler TYPE must match the question type (score map <-> score, choices <-> choice, operators
