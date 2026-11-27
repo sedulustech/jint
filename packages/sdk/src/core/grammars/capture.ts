@@ -31,10 +31,7 @@ import type { Element } from "@jint/contract";
 export type CapturedElement = Element & {
   readonly input: string;
   readonly grammar: string;
-  /**
-   * The element's own source (the span sliced from the file), TRUNCATED: first 200 chars then one
-   * ellipsis when longer. The span stays the authority for the full content.
-   */
+  /** The element's own source: the file sliced by the element's span, whole. */
   readonly text: string;
   /**
    * Population preview (--rule): TRUE on exactly the elements the rule's target and scope globs
@@ -148,12 +145,11 @@ function capturedOf(
   language: string,
   matches: boolean,
 ): CapturedElement {
-  const text = element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
   const captured = {
     ...projectElement(element, element.parent),
     input: path,
     grammar: language,
-    text,
+    text: element.content,
   };
   return matches ? { ...captured, matches: true } : captured;
 }

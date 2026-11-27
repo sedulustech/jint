@@ -40,10 +40,7 @@ declare module "jint:sdk" {
     readonly input: string;
     /** The grammar (by id) that extracted the element. */
     readonly grammar: string;
-    /**
-     * The element's own source (span-sliced), truncated at 200 chars with one ellipsis when longer;
-     * the span stays the authority for the full content.
-     */
+    /** The element's own source: the file sliced by the element's span, whole. */
     readonly text: string;
   };
 

@@ -29,7 +29,7 @@ demands action.
 - **capture verb** — run extraction over an input under a chosen grammar and query set,
   yielding elements while the classifier stays unplugged. The SDK function `capture()` is lint's
   pipeline without the classifier, and the CLI verb `jint capture` prints that function's result.
-  Each element carries its span and a text excerpt; the span is the authority for full content.
+  Each element carries its span and its whole text, the file sliced by that span.
   The config-loading variant `captureFor` loads the config like run does, so capture previews the
   population a rule will judge, and capture with --rule marks that population.
 - **capture vocabulary** — the capture names a run accepts: the shared captures every grammar may
